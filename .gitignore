@@ -1,0 +1,24 @@
+# Python
+backend/.env
+backend/uploads/
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+__pycache__/
+*.py[cod]
+
+# Flutter / Android
+karobar_saathi/.dart_tool/
+karobar_saathi/.packages
+karobar_saathi/build/
+karobar_saathi/.flutter-plugins
+karobar_saathi/.flutter-plugins-dependencies
+karobar_saathi/android/.gradle/
+karobar_saathi/android/local.properties
+*.apk
+*.jks
+*.keystore
+
+# IDE
+.idea/
+.vscode/

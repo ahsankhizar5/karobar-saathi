@@ -1,0 +1,11 @@
+# Generated/updated by the Flutter tool. Local machine paths only.
+local.properties
+.gradle/
+build/
+captures/
+*.iml
+.cxx/
+key.properties
+*.jks
+*.keystore
+GeneratedPluginRegistrant.java

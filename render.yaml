@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: karobar-saathi-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: DATA_DIR
+        value: /tmp/karobar-saathi
+      - key: UPLOAD_DIR
+        value: /tmp/karobar-saathi/uploads
+      - key: WHISPER_ENABLED
+        value: "false"
+      - key: LLM_API_URL
+        value: https://api.groq.com/openai/v1/chat/completions
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: LLM_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        sync: false
