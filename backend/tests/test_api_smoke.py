@@ -1,3 +1,5 @@
+import asyncio
+import json
 from datetime import datetime
 
 import pytest
@@ -42,6 +44,62 @@ def test_parse_text_uses_roman_urdu_rules_without_llm(client, monkeypatch):
         ("purchase", 2000.0),
         ("withdrawal", 800.0),
     }
+
+
+def test_llm_parser_uses_structured_entries_response(monkeypatch):
+    from app.services import parsing
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "entries": [
+                                        {
+                                            "entry_type": "sale",
+                                            "amount": 4500,
+                                            "note": "Aaj ki bikri",
+                                            "category": "other",
+                                            "needs_clarification": False,
+                                            "clarification_question": None,
+                                        }
+                                    ]
+                                }
+                            )
+                        }
+                    }
+                ]
+            }
+
+    class FakeClient:
+        request_json = None
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def post(self, *args, **kwargs):
+            self.request_json = kwargs["json"]
+            return FakeResponse()
+
+    fake_client = FakeClient()
+    monkeypatch.setattr(parsing.settings, "LLM_API_KEY", "test-key")
+    monkeypatch.setattr(parsing.httpx, "AsyncClient", lambda *args, **kwargs: fake_client)
+
+    entries = asyncio.run(parsing.parse_with_llm("Aaj pentaalis sau ki bikri hui."))
+
+    assert entries[0].entry_type.value == "sale"
+    assert entries[0].amount == 4500.0
+    assert fake_client.request_json["response_format"]["type"] == "json_schema"
+    assert fake_client.request_json["response_format"]["json_schema"]["strict"] is True
 
 
 def test_dashboard_calculates_confirmed_entries(client):

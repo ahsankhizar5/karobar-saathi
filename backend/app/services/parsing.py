@@ -50,35 +50,63 @@ Your job is to extract structured ledger entries from spoken or written daily bu
 6. Include a brief note in Urdu/Roman Urdu describing what the transaction was for.
 7. Add a category when inferable: "food", "utilities", "stock", "rent", "household", "transport", "other".
 
-## OUTPUT FORMAT (strict JSON array):
+## OUTPUT FORMAT (strict JSON object):
 ```json
-[
-  {
-    "entry_type": "sale",
-    "amount": 4500.0,
-    "note": "Aaj ki sale",
-    "category": "other",
-    "needs_clarification": false,
-    "clarification_question": null
-  }
-]
+{
+  "entries": [
+    {
+      "entry_type": "sale",
+      "amount": 4500.0,
+      "note": "Aaj ki sale",
+      "category": "other",
+      "needs_clarification": false,
+      "clarification_question": null
+    }
+  ]
+}
 ```
 
-If ANY entry is ambiguous:
-```json
-[
-  {
-    "entry_type": "unclear",
-    "amount": 3000.0,
-    "note": "3 hazar diye",
-    "category": null,
-    "needs_clarification": true,
-    "clarification_question": "3000 rupay kis ko diye? Kya yeh udhaar tha, kharcha tha, ya ghar bheje?"
-  }
-]
-```
+If ANY entry is ambiguous, include it in `entries` with `entry_type` set to `unclear`.
+Return ONLY the JSON object. No explanation or markdown outside the JSON."""
 
-Return ONLY the JSON array. No explanation, no markdown outside the JSON."""
+
+PARSED_ENTRIES_SCHEMA = {
+    "name": "parsed_ledger_entries",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "entries": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "entry_type": {
+                            "type": "string",
+                            "enum": ["sale", "purchase", "expense", "withdrawal", "unclear"],
+                        },
+                        "amount": {"type": "number"},
+                        "note": {"type": ["string", "null"]},
+                        "category": {"type": ["string", "null"]},
+                        "needs_clarification": {"type": "boolean"},
+                        "clarification_question": {"type": ["string", "null"]},
+                    },
+                    "required": [
+                        "entry_type",
+                        "amount",
+                        "note",
+                        "category",
+                        "needs_clarification",
+                        "clarification_question",
+                    ],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": ["entries"],
+        "additionalProperties": False,
+    },
+}
 
 
 async def parse_with_llm(transcript: str) -> list[ParsedEntry]:
@@ -102,21 +130,18 @@ async def parse_with_llm(transcript: str) -> list[ParsedEntry]:
                     ],
                     "temperature": 0.1,
                     "max_tokens": 1000,
+                    "response_format": {
+                        "type": "json_schema",
+                        "json_schema": PARSED_ENTRIES_SCHEMA,
+                    },
                 },
             )
             response.raise_for_status()
             result = response.json()
             content = result["choices"][0]["message"]["content"]
-            content = content.strip()
-            if content.startswith("```"):
-                content = content.split("\n", 1)[1] if "\n" in content else content[3:]
-                if content.endswith("```"):
-                    content = content[:-3]
-                content = content.strip()
-
             parsed = json.loads(content)
             entries = []
-            for item in parsed:
+            for item in parsed["entries"]:
                 entries.append(ParsedEntry(
                     entry_type=EntryType(item.get("entry_type", "unclear")),
                     amount=float(item.get("amount", 0)),
