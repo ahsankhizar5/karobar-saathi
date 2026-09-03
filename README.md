@@ -99,12 +99,17 @@ Revoking consent in the app (or using `PATCH /api/v1/evidence-profile/shop_001/c
 ## What's Real vs. Demo
 
 ### Fully Working (Live in Demo)
-✅ Voice-to-ledger pipeline: voice note → Whisper → LLM parsing → database
+✅ Typed transaction → LLM/rule parsing → confirmed database ledger
 ✅ User confirmation/correction flow (no hallucinated entries)
 ✅ Dashboard with profit, trends, cash-flow insight
 ✅ REST API endpoint `/api/v1/evidence-profile/{user_id}` with consent gate
 ✅ Auto-generated API docs at `/docs`
 ✅ Installable APK (GitHub Release), works against live backend
+
+### Available on Suitably Provisioned Hosting
+🔶 Voice-to-ledger pipeline: voice note → Whisper → LLM parsing → database
+   requires FFmpeg and `WHISPER_ENABLED=true`; it is disabled on the Render
+   free tier to avoid model-download and memory failures.
 
 ### Demo-Simulated (Concept Only)
 🔶 Lender View: 3 seeded demo profiles (not real users)
@@ -128,5 +133,5 @@ in 48 hours; we're showing the wedge that makes solving it possible.
 1. Create a GitHub repository and push the source.
 2. Deploy the backend and determine its HTTPS API URL.
 3. Build the APK using that URL via `API_BASE_URL`.
-4. Create tag `v1.0-hackathon` and attach `app-release.apk` as the release asset.
+4. Create tag `v1.0.0-hackathon` and attach `app-release.apk` as the release asset.
 5. Verify the installed APK can call `/health` and submit a text or voice transaction against the deployed API.
