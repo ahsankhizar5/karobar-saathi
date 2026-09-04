@@ -68,7 +68,7 @@ class ParsedEntry(BaseModel):
 
 
 class TranscriptRequest(BaseModel):
-    user_id: str
+    user_id: str = Field(min_length=1, pattern=r"\S")
     text: str
 
 

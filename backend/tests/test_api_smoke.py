@@ -46,6 +46,16 @@ def test_parse_text_uses_roman_urdu_rules_without_llm(client, monkeypatch):
     }
 
 
+@pytest.mark.parametrize("user_id", ["", "   "])
+def test_parse_text_rejects_blank_user_id(client, user_id):
+    response = client.post(
+        "/api/v1/voice/parse-text",
+        json={"user_id": user_id, "text": "Aaj 4500 ki sale hui."},
+    )
+
+    assert response.status_code == 422
+
+
 def test_llm_parser_uses_structured_entries_response(monkeypatch):
     from app.services import parsing
 
