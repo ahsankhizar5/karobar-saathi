@@ -17,6 +17,9 @@ async def transcribe_and_parse(
     fallback_text: str = Form(None),
 ):
     """Upload an audio file for transcription, or provide text directly."""
+    if not user_id or not user_id.strip():
+        raise HTTPException(status_code=422, detail="user_id cannot be blank")
+
     transcript = ""
 
     if audio and audio.filename:
@@ -29,7 +32,7 @@ async def transcribe_and_parse(
         with open(filepath, "wb") as f:
             f.write(content)
 
-        transcript = transcribe_with_fallback(filepath, fallback_text)
+        transcript = await transcribe_with_fallback(filepath, fallback_text)
 
         if os.path.exists(filepath):
             os.remove(filepath)

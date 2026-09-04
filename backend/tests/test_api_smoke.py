@@ -56,6 +56,104 @@ def test_parse_text_rejects_blank_user_id(client, user_id):
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize("user_id", ["", "   "])
+def test_transcribe_rejects_blank_user_id(client, user_id):
+    response = client.post(
+        "/api/v1/voice/transcribe",
+        data={"user_id": user_id, "fallback_text": "Aaj 4500 ki sale hui."},
+    )
+
+    assert response.status_code == 422
+
+
+def test_groq_transcription_sends_multipart_audio(monkeypatch, tmp_path):
+    from app.services import transcription
+
+    audio_file = tmp_path / "note.m4a"
+    audio_file.write_bytes(b"fake-audio-bytes")
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"text": "Aaj 4500 ki sale hui."}
+
+    class FakeClient:
+        request_url = None
+        request_kwargs = None
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def post(self, url, **kwargs):
+            FakeClient.request_url = url
+            FakeClient.request_kwargs = kwargs
+            return FakeResponse()
+
+    fake_client = FakeClient()
+    monkeypatch.setattr(transcription.settings, "TRANSCRIPTION_PROVIDER", "groq")
+    monkeypatch.setattr(transcription.settings, "LLM_API_KEY", "test-key")
+    monkeypatch.setattr(transcription.httpx, "AsyncClient", lambda *args, **kwargs: fake_client)
+
+    transcript = asyncio.run(transcription.transcribe_audio_file(str(audio_file)))
+
+    assert transcript == "Aaj 4500 ki sale hui."
+    assert FakeClient.request_url == "https://api.groq.com/openai/v1/audio/transcriptions"
+    assert FakeClient.request_kwargs["headers"]["Authorization"] == "Bearer test-key"
+    file_name, file_obj, mime_type = FakeClient.request_kwargs["files"]["file"]
+    assert file_name == "note.m4a"
+    assert mime_type == "audio/mp4"
+    assert FakeClient.request_kwargs["data"]["model"] == "whisper-large-v3"
+
+
+def test_groq_transcription_skips_request_without_api_key(monkeypatch, tmp_path):
+    from app.services import transcription
+
+    monkeypatch.setattr(transcription.settings, "TRANSCRIPTION_PROVIDER", "groq")
+    monkeypatch.setattr(transcription.settings, "LLM_API_KEY", "")
+
+    audio_file = tmp_path / "note.wav"
+    audio_file.write_bytes(b"fake-audio-bytes")
+
+    def fail_post(*args, **kwargs):
+        raise AssertionError("should not call the transcription API without a key")
+
+    monkeypatch.setattr(
+        transcription.httpx, "AsyncClient", lambda *args, **kwargs: type("NoClient", (), {"post": fail_post})()
+    )
+
+    transcript = asyncio.run(transcription.transcribe_with_fallback(str(audio_file), "typed fallback"))
+
+    assert transcript == "typed fallback"
+
+
+def test_transcribe_endpoint_uses_fallback_text_when_provider_disabled(client, monkeypatch, tmp_path):
+    from app.services import parsing, transcription
+
+    monkeypatch.setattr(transcription.settings, "TRANSCRIPTION_PROVIDER", "none")
+    monkeypatch.setattr(parsing.settings, "LLM_API_KEY", "")
+
+    audio_file = tmp_path / "note.m4a"
+    audio_file.write_bytes(b"fake-audio-bytes")
+    with open(audio_file, "rb") as audio:
+        response = client.post(
+            "/api/v1/voice/transcribe",
+            files={"audio": ("note.m4a", audio, "audio/mp4")},
+            data={"user_id": "shop_001", "fallback_text": "Aaj 4500 ki sale hui."},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["raw_transcript"] == "Aaj 4500 ki sale hui."
+    assert {(entry["entry_type"], entry["amount"]) for entry in body["parsed_entries"]} == {
+        ("sale", 4500.0)
+    }
+
+
 def test_llm_parser_uses_structured_entries_response(monkeypatch):
     from app.services import parsing
 

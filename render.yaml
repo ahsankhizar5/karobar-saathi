@@ -15,8 +15,8 @@ services:
         value: /tmp/karobar-saathi
       - key: UPLOAD_DIR
         value: /tmp/karobar-saathi/uploads
-      - key: WHISPER_ENABLED
-        value: "false"
+      - key: TRANSCRIPTION_PROVIDER
+        value: groq
       - key: LLM_API_URL
         value: https://api.groq.com/openai/v1/chat/completions
       - key: LLM_MODEL

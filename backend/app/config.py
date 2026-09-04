@@ -8,8 +8,10 @@ _DEVELOPMENT_SECRET = "karobar-saathi-dev-key-change-in-production"
 class Settings(BaseSettings):
     APP_NAME: str = "Karobar Saathi"
     ENVIRONMENT: str = "development"
-    WHISPER_ENABLED: bool = False
+    TRANSCRIPTION_PROVIDER: str = "groq"
     WHISPER_MODEL: str = "base"
+    GROQ_TRANSCRIBE_URL: str = "https://api.groq.com/openai/v1/audio/transcriptions"
+    GROQ_TRANSCRIBE_MODEL: str = "whisper-large-v3"
     LLM_API_KEY: str = ""
     LLM_API_URL: str = "https://api.groq.com/openai/v1/chat/completions"
     LLM_MODEL: str = "openai/gpt-oss-20b"
