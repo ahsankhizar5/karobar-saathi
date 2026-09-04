@@ -46,6 +46,51 @@ def test_parse_text_uses_roman_urdu_rules_without_llm(client, monkeypatch):
     }
 
 
+@pytest.mark.parametrize(
+    "text, expected_type, expected_amount",
+    [
+        ("do hazar ki bikri hui", "sale", 2000.0),
+        ("2 hazar ka maal khareeda", "purchase", 2000.0),
+        ("paanch sau ka bijli ka bill diya", "expense", 500.0),
+        ("saadhe teen hazar ki sale hui", "sale", 3500.0),
+        ("dedh hazar ki kamai", "sale", 1500.0),
+        ("dhai sau ka maal", "purchase", 250.0),
+        ("3 hazar diye", "unclear", 3000.0),
+        ("ek lakh ki bikri", "sale", 100000.0),
+    ],
+)
+def test_rule_parser_understands_urdu_number_words(
+    client, monkeypatch, text, expected_type, expected_amount
+):
+    from app.services import parsing
+
+    monkeypatch.setattr(parsing.settings, "LLM_API_KEY", "")
+    response = client.post(
+        "/api/v1/voice/parse-text",
+        json={"user_id": "shop_001", "text": text},
+    )
+
+    assert response.status_code == 200
+    entries = response.json()["parsed_entries"]
+    assert len(entries) == 1
+    assert entries[0]["entry_type"] == expected_type
+    assert entries[0]["amount"] == expected_amount
+
+
+def test_rule_parser_does_not_read_kg_as_thousands(client, monkeypatch):
+    from app.services import parsing
+
+    monkeypatch.setattr(parsing.settings, "LLM_API_KEY", "")
+    response = client.post(
+        "/api/v1/voice/parse-text",
+        json={"user_id": "shop_001", "text": "12 kg cheeni khareedi"},
+    )
+
+    assert response.status_code == 200
+    entries = response.json()["parsed_entries"]
+    assert all(entry["amount"] != 12000.0 for entry in entries)
+
+
 @pytest.mark.parametrize("user_id", ["", "   "])
 def test_parse_text_rejects_blank_user_id(client, user_id):
     response = client.post(
@@ -241,6 +286,37 @@ def test_dashboard_calculates_confirmed_entries(client):
     assert dashboard["today_profit"] == 900.0
     assert dashboard["cash_position"] == 900.0
     assert len(dashboard["weekly_trend"]) == 7
+
+
+def test_evidence_returns_empty_profile_for_user_without_ledger_data(client):
+    """A user row with no confirmed entries must not crash the endpoint."""
+    from app.database import get_db
+
+    with get_db() as connection:
+        connection.execute(
+            "INSERT INTO users (id, name, business_type) VALUES (?, ?, ?)",
+            ("no_entries_user", "No Entries", "tea_stall"),
+        )
+
+    response = client.get(
+        "/api/v1/evidence-profile/no_entries_user",
+        headers={"X-User-Consent": "true"},
+    )
+
+    assert response.status_code == 200
+    profile = response.json()
+    assert profile["user_id"] == "no_entries_user"
+    assert profile["metrics"]["days_with_transactions"] == 0
+    assert profile["metrics"]["avg_daily_sales"] == 0
+
+
+def test_evidence_returns_404_for_unknown_user(client):
+    response = client.get(
+        "/api/v1/evidence-profile/ghost_user",
+        headers={"X-User-Consent": "true"},
+    )
+
+    assert response.status_code == 404
 
 
 def test_evidence_requires_active_consent_and_header(client):

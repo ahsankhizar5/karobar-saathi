@@ -32,10 +32,13 @@ async def get_evidence_profile(
         ).fetchone()
 
         if not summary_row:
-            summary = compute_evidence_summary(user_id)
+            compute_evidence_summary(user_id)
             summary_row = conn.execute(
                 "SELECT * FROM evidence_summaries WHERE user_id = ?", (user_id,)
             ).fetchone()
+
+        if not summary_row:
+            raise HTTPException(status_code=404, detail="No evidence profile available for this user")
 
         consent_db = bool(summary_row["has_user_consented_to_share"])
         consent_header = x_user_consent and x_user_consent.lower() == "true"
@@ -48,7 +51,6 @@ async def get_evidence_profile(
                     "message": "User has not consented to share their financial evidence profile. "
                                "Both the user's consent setting AND the X-User-Consent: true header must be active.",
                     "has_user_consented_to_share": consent_db,
-                    "x_user_consent_header": x_user_consent,
                 }
             )
 
@@ -117,10 +119,13 @@ async def get_full_evidence_profile(user_id: str, x_user_consent: Optional[str] 
         ).fetchone()
 
         if not summary_row:
-            summary = compute_evidence_summary(user_id)
+            compute_evidence_summary(user_id)
             summary_row = conn.execute(
                 "SELECT * FROM evidence_summaries WHERE user_id = ?", (user_id,)
             ).fetchone()
+
+        if not summary_row:
+            raise HTTPException(status_code=404, detail="No evidence profile available for this user")
 
         consent_db = bool(summary_row["has_user_consented_to_share"])
         consent_header = x_user_consent and x_user_consent.lower() == "true"

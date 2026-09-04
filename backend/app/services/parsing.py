@@ -156,6 +156,25 @@ async def parse_with_llm(transcript: str) -> list[ParsedEntry]:
         return _parse_with_rules(transcript)
 
 
+# A number token is digits (optionally with a decimal/comma) OR an Urdu/English
+# word-number, optionally followed by a multiplier word (sau/hazar/lakh).
+# "saadhe"/"dedh"/"dhai" express halves ("saadhe teen hazar" = 3,500).
+# Bare "k" is deliberately NOT a multiplier: "12 kg cheeni" must not parse as
+# 12,000 — quantities in kilograms are far more common than "2k" style in
+# bazaar speech.
+_NUM = r"(?:saadhe\s+)?(?:\d+(?:[,.]\d+)?|ek|do|teen|char|paanch|panch|chd|che|saat|aath|nau|das|dedh|dhai)\s*(?:sau|so|hazar|hazaar|hazaaron|lakh|lac)?"
+
+_WORD_NUMBERS = {
+    "ek": 1, "do": 2, "teen": 3, "char": 4, "paanch": 5, "panch": 5,
+    "che": 6, "saat": 7, "aath": 8, "nau": 9, "das": 10,
+    "dedh": 1.5, "dhai": 2.5,
+}
+_MULTIPLIERS = {
+    "sau": 100, "so": 100, "hazar": 1000, "hazaar": 1000, "hazaaron": 1000,
+    "lakh": 100000, "lac": 100000,
+}
+
+
 def _parse_with_rules(transcript: str) -> list[ParsedEntry]:
     """Rule-based fallback parser for when LLM is unavailable."""
     import re
@@ -163,28 +182,55 @@ def _parse_with_rules(transcript: str) -> list[ParsedEntry]:
     text = transcript.lower().strip()
 
     sale_patterns = [
-        r"(\d+(?:[,.]?\d+)*)\s*(?:(?:rs|rups?|rupay)\s*)?(?:ki\s*)?(?:sale|bikri|kamai|kamaya|becha)",
-        r"(?:sale|bikri|kamai)\s*(?:hui|hoi)?\s*(?:thi)?\s*(\d+(?:[,.]?\d+)*)",
+        rf"({_NUM})\s*(?:(?:rs|rups?|rupay)\s*)?(?:ki\s*)?(?:sale|bikri|kamai|kamaya|becha)",
+        rf"(?:sale|bikri|kamai)\s*(?:hui|hoi)?\s*(?:thi)?\s*({_NUM})",
     ]
     purchase_patterns = [
-        r"(\d+(?:[,.]?\d+)*)\s*(?:(?:rs|rups?|rupay)\s*)?(?:ka\s*)?(?:maal|stock|khareeda|samaan)",
-        r"(?:maal|stock|khareedari)\s*(\d+(?:[,.]?\d+)*)",
+        rf"({_NUM})\s*(?:(?:rs|rups?|rupay)\s*)?(?:ka\s*)?(?:maal|stock|khareeda|samaan)",
+        rf"(?:maal|stock|khareedari)\s*({_NUM})",
     ]
     withdrawal_patterns = [
-        r"(\d+(?:[,.]?\d+)*)\s*(?:(?:rs|rups?|rupay)\s*)?(?:ghar\s*bheje|ghar\s*ke\s*liye|ghar\s*kharch|nikaal|udhaar\s*diya)",
-        r"(?:ghar\s*bheje|ghar\s*kharch)\s*(\d+(?:[,.]?\d+)*)",
+        rf"({_NUM})\s*(?:(?:rs|rups?|rupay)\s*)?(?:ghar\s*bheje|ghar\s*ke\s*liye|ghar\s*kharch|nikaal|udhaar\s*diya)",
+        rf"(?:ghar\s*bheje|ghar\s*kharch)\s*({_NUM})",
     ]
     expense_patterns = [
-        r"(\d+(?:[,.]?\d+)*)\s*(?:(?:rs|rups?|rupay)\s*)?(?:ka\s*)?(?:bill|kiraya|kharcha|committee)",
-        r"(?:bill|kiraya|kharcha)\s*(\d+(?:[,.]?\d+)*)",
+        # "500 ka bill" and "500 ka bijli ka bill" — the intervening noun is
+        # common in phrases like "bijli ka bill" (electricity bill).
+        rf"({_NUM})\s*(?:(?:rs|rups?|rupay)\s*)?(?:ka\s*)?(?:\w+\s+ka\s+)?(?:bill|kiraya|kharcha|committee)",
+        rf"(?:bill|kiraya|kharcha)\s*({_NUM})",
     ]
 
     def extract_amount(match_str: str) -> float:
-        cleaned = match_str.replace(",", "").replace(" ", "")
-        try:
-            return float(cleaned)
-        except ValueError:
-            return 0.0
+        s = match_str.lower().strip()
+        half = False
+        if s.startswith("saadhe"):
+            half = True
+            s = s[len("saadhe"):].strip()
+
+        # Split off a trailing multiplier word if present.
+        multiplier = 1
+        for word, factor in _MULTIPLIERS.items():
+            if s.endswith(word):
+                multiplier = factor
+                s = s[: -len(word)].strip()
+                break
+
+        base_str = s.replace(",", "").replace(" ", "")
+        base = 0.0
+        if base_str in _WORD_NUMBERS:
+            base = float(_WORD_NUMBERS[base_str])
+        elif base_str == "" and multiplier > 1:
+            base = 1.0  # e.g. bare "hazar" → 1000
+        else:
+            try:
+                base = float(base_str)
+            except ValueError:
+                return 0.0
+
+        value = base * multiplier
+        if half:
+            value += multiplier / 2
+        return value
 
     for pattern in sale_patterns:
         for match in re.finditer(pattern, text):
@@ -227,7 +273,8 @@ def _parse_with_rules(transcript: str) -> list[ParsedEntry]:
                 ))
 
     if not entries:
-        number_matches = re.findall(r"(\d+(?:[,.]?\d+)*)\s*(?:rs|rups?|rupay|hazaar|sau)?", text)
+        number_matches = re.findall(rf"({_NUM})", text)
+        number_matches = [m for m in number_matches if m.strip()]
         if number_matches:
             entries.append(ParsedEntry(
                 entry_type=EntryType.UNCLEAR,

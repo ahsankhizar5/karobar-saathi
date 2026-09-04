@@ -110,6 +110,8 @@ Revoking consent in the app (or using `PATCH /api/v1/evidence-profile/shop_001/c
 ✅ Auto-generated API docs at `/docs`
 ✅ Installable APK (GitHub Release), works against live backend
 ✅ Six pre-recorded voice notes in `backend/seed_audio/` for repeatable demos
+✅ In-app language switch (English ⇄ اردو) with full RTL layout, persisted
+   across launches — every screen, dialog, and error message is localized
 
 ### Demo-Simulated (Concept Only)
 🔶 Lender View: 3 seeded demo profiles (not real users)

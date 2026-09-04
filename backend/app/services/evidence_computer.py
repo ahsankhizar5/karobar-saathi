@@ -21,7 +21,12 @@ def compute_evidence_summary(user_id: str) -> dict:
         """, (user_id, thirty_days_ago)).fetchall()
 
         if not rows:
-            return _empty_summary(user_id)
+            # Persist the empty summary too, so callers that re-read the row
+            # (e.g. the evidence endpoint) always find one and never crash on a
+            # missing record for a user who simply has no confirmed entries yet.
+            summary = _empty_summary(user_id)
+            _upsert_summary(conn, user_id, summary)
+            return summary
 
         entries = [dict(r) for r in rows]
         today = datetime.utcnow().date()

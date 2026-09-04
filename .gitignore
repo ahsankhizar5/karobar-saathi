@@ -1,6 +1,7 @@
 # Python
 backend/.env
 backend/uploads/
+backend/data/
 backend/*.db
 backend/*.db-shm
 backend/*.db-wal

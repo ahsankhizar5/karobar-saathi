@@ -18,6 +18,17 @@ _MIME_TYPES = {
 }
 
 
+# Seed prompt for Whisper. A representative code-switched Roman Urdu sentence
+# steers the model to transcribe phonetically in Latin script (with
+# `language="en"`) instead of switching to Urdu (Arabic) script or translating
+# the numbers/terms into English. This is a decoding hint, not training data —
+# it biases Whisper toward the vernacular and number words the app expects.
+_ROMAN_URDU_PROMPT = (
+    "Aaj 4500 ki sale hui, 2000 ka maal khareeda aur 800 ghar bheje. "
+    "Udhaar baqi hai. Bijli ka bill 1200 diya. Committee 3000 jama karayi."
+)
+
+
 async def transcribe_audio_file(audio_path: str) -> str:
     """Transcribe an audio file using the configured provider."""
     provider = settings.TRANSCRIPTION_PROVIDER.strip().lower()
@@ -45,6 +56,12 @@ async def _transcribe_with_groq(audio_path: str) -> str:
                     data={
                         "model": settings.GROQ_TRANSCRIBE_MODEL,
                         "response_format": "json",
+                        # Transcribe code-switched Roman Urdu phonetically in
+                        # Latin script rather than translating or switching to
+                        # Urdu script.
+                        "language": "en",
+                        "prompt": _ROMAN_URDU_PROMPT,
+                        "temperature": 0,
                     },
                 )
             response.raise_for_status()
@@ -59,7 +76,12 @@ def _transcribe_with_local_whisper(audio_path: str) -> str:
         from faster_whisper import WhisperModel
 
         model = WhisperModel(settings.WHISPER_MODEL, device="cpu", compute_type="int8")
-        segments, info = model.transcribe(audio_path, language=None, beam_size=5)
+        segments, info = model.transcribe(
+            audio_path,
+            language="en",
+            initial_prompt=_ROMAN_URDU_PROMPT,
+            beam_size=5,
+        )
         return " ".join(segment.text for segment in segments).strip()
     except ImportError:
         return ""
