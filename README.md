@@ -6,6 +6,7 @@ Karobar Saathi turns spoken daily business transactions into a confirmed ledger 
 
 - `karobar_saathi/` — Flutter Android app (Riverpod, `record`)
 - `backend/` — FastAPI service (voice parsing, ledger, dashboard, evidence API)
+- `backend/seed_audio/` — six pre-recorded voice notes for repeatable voice-pipeline demos
 - `render.yaml` / `Dockerfile` — Render deployment configuration
 
 ## Local backend setup
@@ -81,7 +82,7 @@ The APK is written to `build/app/outputs/flutter-apk/app-release.apk`.
 
 ## Deploy the backend
 
-The included `render.yaml` deploys the Docker service to Render. Set `LLM_API_KEY` and `SECRET_KEY` only in Render's encrypted environment panel; do not add them to the repository. The free blueprint disables Whisper to avoid model-download and memory failures, so typed transactions remain available while audio transcription requires a suitably provisioned host with `WHISPER_ENABLED=true`.
+The included `render.yaml` deploys the Docker service to Render. Set `LLM_API_KEY` and `SECRET_KEY` only in Render's encrypted environment panel; do not add them to the repository. Voice transcription uses Groq's hosted Whisper API (`whisper-large-v3`) with the same `LLM_API_KEY`, so the voice pipeline works even on the free tier. Set `TRANSCRIPTION_PROVIDER=local` to run faster-whisper in-process instead (requires FFmpeg and a suitably provisioned host), or `none` for typed transactions only.
 
 The free-tier SQLite directory is ephemeral. After a service restart, the demo data resets and the same three seeded profiles are recreated. Use persistent storage and a managed database before a production deployment.
 
@@ -99,17 +100,16 @@ Revoking consent in the app (or using `PATCH /api/v1/evidence-profile/shop_001/c
 ## What's Real vs. Demo
 
 ### Fully Working (Live in Demo)
+✅ Voice-to-ledger pipeline: voice note → Whisper (Groq hosted `whisper-large-v3`)
+   → LLM parsing → confirmed ledger
 ✅ Typed transaction → LLM/rule parsing → confirmed database ledger
-✅ User confirmation/correction flow (no hallucinated entries)
+✅ User confirmation/correction flow, including clarification questions for
+   ambiguous input (no hallucinated entries)
 ✅ Dashboard with profit, trends, cash-flow insight
 ✅ REST API endpoint `/api/v1/evidence-profile/{user_id}` with consent gate
 ✅ Auto-generated API docs at `/docs`
 ✅ Installable APK (GitHub Release), works against live backend
-
-### Available on Suitably Provisioned Hosting
-🔶 Voice-to-ledger pipeline: voice note → Whisper → LLM parsing → database
-   requires FFmpeg and `WHISPER_ENABLED=true`; it is disabled on the Render
-   free tier to avoid model-download and memory failures.
+✅ Six pre-recorded voice notes in `backend/seed_audio/` for repeatable demos
 
 ### Demo-Simulated (Concept Only)
 🔶 Lender View: 3 seeded demo profiles (not real users)
@@ -119,14 +119,14 @@ Revoking consent in the app (or using `PATCH /api/v1/evidence-profile/shop_001/c
    API-ready, no live lender connected
 
 ### Path to Production (not built, stated for context)
-This hackathon build proves the core pipeline and the API-readiness of the
-architecture. Turning this into a real product requires: local data hosting
-to meet SBP/SECP data-residency expectations, a regulatory sandbox
-application or partnership with a licensed MFB/NBFC as the capital-deploying
-partner, ASR fine-tuned on Pakistani bazaar vernacular at scale, and — most
-critically — real repayment outcome data before any lender will trust this
-as underwriting evidence. We are not claiming to have solved lender trust
-in 48 hours; we're showing the wedge that makes solving it possible.
+This build proves the core pipeline and the API-readiness of the architecture.
+Turning this into a real product requires: local data hosting to meet SBP/SECP
+data-residency expectations, a regulatory sandbox application or partnership
+with a licensed MFB/NBFC as the capital-deploying partner, ASR fine-tuned on
+Pakistani bazaar vernacular at scale, and — most critically — real repayment
+outcome data before any lender will trust this as underwriting evidence. We
+are not claiming to have solved lender trust in 48 hours; we're showing the
+wedge that makes solving it possible.
 
 ## GitHub Release checklist
 
