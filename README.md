@@ -128,6 +128,36 @@ outcome data before any lender will trust this as underwriting evidence. We
 are not claiming to have solved lender trust in 48 hours; we're showing the
 wedge that makes solving it possible.
 
+## End-to-end verification (2026-09-04)
+
+The full UI was driven end-to-end against the live Render backend using a Flutter
+web build of the same Dart client (the Android emulator was unavailable on the
+test machine; both targets run the identical app code and API client). Every
+step below was exercised against production on 2026-09-04:
+
+- **Typed multi-transaction flow**: "Aaj subah 4500 ki chai aur biscuits ki sale
+  hui, aur shaam ko 1200 ka doodh aur cheeni khareeda" → parsed into 2 entries
+  (Sale Rs 4,500 / Purchase Rs 1,200) → reviewed and edited → `batch-confirm`
+  saved both → dashboard updated with exact math reconciliation (profit
+  Rs 3,300, sales Rs 4,500, out Rs 1,200).
+- **Clarification flow**: an amountless entry produced the Roman-Urdu question
+  "Bikri ki amount kya hai?" and disabled saving until a type and amount were
+  provided — no entry was invented.
+- **Ledger view**: saved entries listed with amount, note, original transcript,
+  timestamp, and category.
+- **Lender view**: explainable profile rendered (average daily sales, 30-day
+  consistency, cash buffer, loan range, traceable factors).
+- **Deletion**: ledger entries removed via the confirmation dialog.
+- **Voice pipeline**: three seed audio samples (single sale, multi-transaction,
+  unclear amount) submitted to `/api/v1/voice/transcribe` — all transcribed via
+  Groq Whisper and parsed correctly, with the ambiguous "3000 die" sample
+  returned as `unclear` plus a clarification question.
+- **Consent gate**: revoking consent via `PATCH .../consent` made
+  `GET /api/v1/evidence-profile/shop_001` return `403 consent_required` even
+  with the `X-User-Consent: true` header; re-granting restored `200`.
+- **Cleanup**: all test entries were deleted afterward and the dashboard was
+  verified back at its pre-test baseline.
+
 ## GitHub Release checklist
 
 1. Create a GitHub repository and push the source.
