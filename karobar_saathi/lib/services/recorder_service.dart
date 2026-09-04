@@ -8,15 +8,42 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record_platform_interface/record_platform_interface.dart';
 
+/// Why a recording operation failed, so the UI can show a localized message
+/// (this service has no [BuildContext] to localize with itself).
+enum RecorderErrorKind {
+  /// Microphone permission was refused this time.
+  permissionDenied,
+
+  /// Microphone permission is permanently denied ("Don't ask again"); the
+  /// caller should offer to open system settings.
+  permissionPermanentlyDenied,
+
+  /// The native recorder could not start capture.
+  startFailed,
+
+  /// The recording could not be finalized or saved.
+  saveFailed,
+}
+
 /// Raised when recording cannot start or stop cleanly.
+///
+/// [message] is an English fallback suitable for logs; the UI should prefer a
+/// localized string chosen from [kind].
 class RecorderException implements Exception {
-  RecorderException(this.message, {this.permanentlyDenied = false});
+  RecorderException(
+    this.message, {
+    required this.kind,
+  });
 
   final String message;
 
+  /// Machine-readable reason, used by the UI to pick a localized message.
+  final RecorderErrorKind kind;
+
   /// True when the user selected "Don't ask again"; the caller should offer to
   /// open system settings.
-  final bool permanentlyDenied;
+  bool get permanentlyDenied =>
+      kind == RecorderErrorKind.permissionPermanentlyDenied;
 
   @override
   String toString() => message;
@@ -47,7 +74,9 @@ class RecorderService {
           ? 'Microphone access is blocked. Enable it in system settings to '
               'record your transactions.'
           : 'Microphone permission is required to record your transactions.',
-      permanentlyDenied: status.isPermanentlyDenied,
+      kind: status.isPermanentlyDenied
+          ? RecorderErrorKind.permissionPermanentlyDenied
+          : RecorderErrorKind.permissionDenied,
     );
   }
 
@@ -71,7 +100,10 @@ class RecorderService {
     await _ensureCreated();
 
     if (!await RecordPlatform.instance.hasPermission(_recorderId)) {
-      throw RecorderException('Microphone permission is required.');
+      throw RecorderException(
+        'Microphone permission is required.',
+        kind: RecorderErrorKind.permissionDenied,
+      );
     }
 
     final Directory dir = await getTemporaryDirectory();
@@ -91,7 +123,10 @@ class RecorderService {
       );
     } catch (error) {
       _currentPath = null;
-      throw RecorderException('Could not start recording: $error');
+      throw RecorderException(
+        'Could not start recording: $error',
+        kind: RecorderErrorKind.startFailed,
+      );
     }
   }
 
@@ -115,7 +150,10 @@ class RecorderService {
       return path;
     } catch (error) {
       _currentPath = null;
-      throw RecorderException('Could not save the recording: $error');
+      throw RecorderException(
+        'Could not save the recording: $error',
+        kind: RecorderErrorKind.saveFailed,
+      );
     }
   }
 

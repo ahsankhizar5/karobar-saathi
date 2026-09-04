@@ -8,6 +8,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../providers/app_providers.dart';
 import '../theme/app_theme.dart';
@@ -43,9 +45,9 @@ class LenderViewScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
         switch (state) {
-          EvidenceLoading() => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 48),
-              child: LoadingView(message: 'Calling the evidence API…'),
+          EvidenceLoading() => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
+              child: LoadingView(message: context.l10n.callingApi),
             ),
           EvidenceGranted(profile: final EvidenceProfile profile) =>
             _ProfileView(profile: profile, shop: shop),
@@ -72,6 +74,7 @@ class _ConceptBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
 
     return Card(
       color: scheme.secondaryContainer,
@@ -87,7 +90,7 @@ class _ConceptBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'CONCEPT DEMO — NOT A LENDING PRODUCT',
+                    s.conceptBadge,
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: scheme.onSecondaryContainer,
                       fontWeight: FontWeight.w800,
@@ -96,10 +99,7 @@ class _ConceptBanner extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'An illustration of what a partner lender or government '
-                    'department would receive from the consent-gated evidence '
-                    'API. No credit decision, score, or loan offer is made '
-                    'here, and the shops below are seeded sample data.',
+                    s.conceptBody,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSecondaryContainer,
                       height: 1.4,
@@ -124,6 +124,7 @@ class _ShopSelector extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ThemeData theme = Theme.of(context);
+    final AppStrings s = context.l10n;
 
     return Card(
       child: Padding(
@@ -132,7 +133,7 @@ class _ShopSelector extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              'Sample applicant',
+              s.sampleApplicant,
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
@@ -153,7 +154,9 @@ class _ShopSelector extends ConsumerWidget {
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
-                subtitle: Text('${shop.description} • ${shop.id}'),
+                subtitle: Text(
+                  '${s.shopDescription(shop.id, shop.description)} • ${shop.id}',
+                ),
                 contentPadding: EdgeInsets.zero,
               );
             }),
@@ -182,6 +185,7 @@ class _ConsentControl extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
 
     return Card(
       child: Padding(
@@ -194,13 +198,11 @@ class _ConsentControl extends StatelessWidget {
               onChanged: busy ? null : onChanged,
               contentPadding: EdgeInsets.zero,
               title: Text(
-                '${shop.name} shares their data',
+                s.sharesData(shop.name),
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               subtitle: Text(
-                consented
-                    ? 'Consent granted — the API returns the evidence profile.'
-                    : 'Consent revoked — the API returns HTTP 403.',
+                consented ? s.consentGrantedSub : s.consentRevokedSub,
               ),
             ),
             const SizedBox(height: 4),
@@ -217,8 +219,7 @@ class _ConsentControl extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'The shopkeeper owns this switch. Flip it to see the '
-                      'API refuse access in real time.',
+                      s.consentHint,
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: scheme.onSurfaceVariant),
                     ),
@@ -244,6 +245,7 @@ class _ConsentDeniedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
 
     return Card(
       color: scheme.errorContainer,
@@ -258,7 +260,7 @@ class _ConsentDeniedCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'HTTP 403 — Access refused',
+                    s.http403Title,
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: scheme.onErrorContainer,
                       fontWeight: FontWeight.w800,
@@ -289,6 +291,7 @@ class _ConsentDeniedCard extends StatelessWidget {
                 'GET /api/v1/evidence-profile/${shop.id}\n'
                 'X-User-Consent: true\n'
                 '→ 403 consent_required',
+                textDirection: TextDirection.ltr,
                 style: theme.textTheme.bodySmall?.copyWith(
                   fontFamily: 'monospace',
                   color: scheme.onErrorContainer,
@@ -297,7 +300,7 @@ class _ConsentDeniedCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Turn the consent switch back on to restore access.',
+              s.restoreConsent,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onErrorContainer,
                 fontStyle: FontStyle.italic,
@@ -311,17 +314,22 @@ class _ConsentDeniedCard extends StatelessWidget {
 }
 
 /// The granted evidence profile: metrics, explainable factors, readiness.
-class _ProfileView extends StatelessWidget {
+class _ProfileView extends ConsumerWidget {
   const _ProfileView({required this.profile, required this.shop});
 
   final EvidenceProfile profile;
   final DemoShop shop;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
     final EvidenceMetrics m = profile.metrics;
+    // Watching here pre-warms the fetch used by the raw-records modal and
+    // lets the activity calendar appear as soon as the ledger arrives.
+    final AsyncValue<List<LedgerEntry>> ledger =
+        ref.watch(lenderLedgerProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -340,7 +348,7 @@ class _ProfileView extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Consent verified — profile released',
+                        s.consentVerified,
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: scheme.onPrimaryContainer,
                           fontWeight: FontWeight.w700,
@@ -359,7 +367,7 @@ class _ProfileView extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Generated ${Formats.timestamp(profile.profileGeneratedAt)}',
+                  s.generatedAt(Formats.timestamp(profile.profileGeneratedAt)),
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: scheme.onPrimaryContainer),
                 ),
@@ -376,30 +384,30 @@ class _ProfileView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Verified metrics (last 30 days)',
+                  s.verifiedMetrics,
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 12),
                 _MetricRow(
                   icon: Icons.show_chart_rounded,
-                  label: 'Average daily sales',
+                  label: s.avgDailySales,
                   value: Formats.money(m.avgDailySales),
                 ),
                 _MetricRow(
                   icon: Icons.waves_rounded,
-                  label: 'Sales volatility',
-                  value: m.salesVolatility,
+                  label: s.salesVolatility,
+                  value: s.volatility(m.salesVolatility),
                 ),
                 _MetricRow(
                   icon: Icons.event_available_rounded,
-                  label: 'Days with transactions',
+                  label: s.daysWithTransactions,
                   value: '${m.daysWithTransactions}',
                 ),
                 _MetricRow(
                   icon: Icons.savings_outlined,
-                  label: 'Cash buffer',
-                  value: '${m.cashBufferDays} days',
+                  label: s.cashBuffer,
+                  value: s.daysValue(m.cashBufferDays),
                   isLast: true,
                 ),
               ],
@@ -408,6 +416,11 @@ class _ProfileView extends StatelessWidget {
         ),
         const SizedBox(height: 14),
 
+        if (ledger.hasValue) ...<Widget>[
+          _ActivityCalendarCard(entries: ledger.value ?? const <LedgerEntry>[]),
+          const SizedBox(height: 14),
+        ],
+
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -415,21 +428,20 @@ class _ProfileView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Why this profile looks like this',
+                  s.whyProfile,
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Every factor is traceable to recorded transactions — no '
-                  'opaque score.',
+                  s.whyProfileSub,
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: scheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 12),
                 if (profile.explainableFactors.isEmpty)
                   Text(
-                    'No factors available yet.',
+                    s.noFactors,
                     style: theme.textTheme.bodyMedium
                         ?.copyWith(color: scheme.onSurfaceVariant),
                   )
@@ -463,7 +475,7 @@ class _ProfileView extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: () => showRawLedgerModal(context, shop),
           icon: const Icon(Icons.receipt_long_outlined),
-          label: const Text('View underlying ledger records'),
+          label: Text(s.viewUnderlying),
         ),
       ],
     );
@@ -510,6 +522,175 @@ class _MetricRow extends StatelessWidget {
   }
 }
 
+/// Day-by-day record of the last 30 days, derived from the same ledger rows
+/// the "underlying records" modal shows — the visible proof behind the
+/// "days with transactions" metric. Counts confirmed entries by UTC date,
+/// matching how the backend evidence engine computes the metric.
+class _ActivityCalendarCard extends StatelessWidget {
+  const _ActivityCalendarCard({required this.entries});
+
+  final List<LedgerEntry> entries;
+
+  static DateTime? _utcDay(String? iso) {
+    if (iso == null || iso.isEmpty) return null;
+    final DateTime? parsed =
+        DateTime.tryParse(iso.endsWith('Z') ? iso : '${iso}Z');
+    if (parsed == null) return null;
+    return DateTime.utc(parsed.year, parsed.month, parsed.day);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
+
+    final DateTime nowUtc = DateTime.now().toUtc();
+    final DateTime today =
+        DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day);
+
+    final Map<DateTime, int> counts = <DateTime, int>{};
+    for (final LedgerEntry entry in entries) {
+      if (!entry.confirmed) continue;
+      final DateTime? day = _utcDay(entry.createdAt);
+      if (day == null || day.isAfter(today)) continue;
+      if (today.difference(day).inDays >= 30) continue;
+      counts[day] = (counts[day] ?? 0) + 1;
+    }
+
+    final List<DateTime> window = List<DateTime>.generate(
+      30,
+      (int i) => DateTime.utc(today.year, today.month, today.day - (29 - i)),
+    );
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              s.activityTitle,
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              s.activityDaysCount(counts.length),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 14),
+            LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                const double gap = 4;
+                const int columns = 10;
+                final double cell =
+                    (constraints.maxWidth - gap * (columns - 1)) / columns;
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: <Widget>[
+                    for (final DateTime day in window)
+                      SizedBox(
+                        width: cell,
+                        height: cell,
+                        child: _DayCell(
+                          day: day,
+                          count: counts[day] ?? 0,
+                          isToday: day == today,
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: <Widget>[
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(s.activityLegendRecorded,
+                    style: theme.textTheme.bodySmall),
+                const SizedBox(width: 16),
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(2),
+                    border: Border.all(color: scheme.outlineVariant),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(s.activityLegendMissed, style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DayCell extends StatelessWidget {
+  const _DayCell({
+    required this.day,
+    required this.count,
+    required this.isToday,
+  });
+
+  final DateTime day;
+  final int count;
+  final bool isToday;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
+    final bool active = count > 0;
+    final String label = Formats.dayMonth(day);
+
+    final String message = count == 0
+        ? s.dayNoRecords(label)
+        : count == 1
+            ? s.dayRecordsOne(label)
+            : s.dayRecordsMany(label, count);
+
+    return Tooltip(
+      message: message,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: active ? scheme.primary : scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(6),
+          border: isToday
+              ? Border.all(color: scheme.outline, width: 1.5)
+              : null,
+        ),
+        child: Center(
+          child: Text(
+            '${day.day}',
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontSize: 10,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+              color:
+                  active ? scheme.onPrimary : scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Modal listing the shop's raw ledger rows behind the profile.
 Future<void> showRawLedgerModal(BuildContext context, DemoShop shop) {
   return showModalBottomSheet<void>(
@@ -528,6 +709,7 @@ class _RawLedgerModal extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ThemeData theme = Theme.of(context);
+    final AppStrings s = context.l10n;
     final AsyncValue<List<LedgerEntry>> ledger =
         ref.watch(lenderLedgerProvider);
 
@@ -547,7 +729,7 @@ class _RawLedgerModal extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Underlying records',
+                        s.underlyingRecords,
                         style: theme.textTheme.titleLarge
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
@@ -563,7 +745,7 @@ class _RawLedgerModal extends ConsumerWidget {
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close_rounded),
-                  tooltip: 'Close',
+                  tooltip: s.close,
                 ),
               ],
             ),
@@ -584,11 +766,11 @@ class _RawLedgerModal extends ConsumerWidget {
               ),
               data: (List<LedgerEntry> entries) {
                 if (entries.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 48),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 48),
                     child: EmptyView(
-                      title: 'No records',
-                      message: 'This sample shop has no ledger entries.',
+                      title: s.noRecordsTitle,
+                      message: s.noRecordsBody,
                     ),
                   );
                 }

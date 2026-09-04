@@ -6,14 +6,47 @@ import 'package:intl/intl.dart';
 
 import '../models/models.dart';
 
-/// Brand seed — a deep Pakistani green.
-const Color kSeedColor = Color(0xFF00695C);
+/// Brand seed — a deep, calm emerald. Reads as trustworthy and bank-grade.
+const Color kSeedColor = Color(0xFF0B6B5B);
+
+/// Warm off-white canvas for light mode — softer on the eye than pure white.
+const Color _kLightSurface = Color(0xFFF7F6F2);
+const Color _kLightCard = Color(0xFFFFFFFF);
+
+/// Entry accent palette, shared by [EntryVisuals] and chart widgets.
+/// Light-mode values are tuned for white cards; the `…Dark` variants stay
+/// readable on dark surfaces.
+const Color kAccentSale = Color(0xFF1B7F5A); // green — money in
+const Color kAccentPurchase = Color(0xFF2563A8); // blue — stock/buy
+const Color kAccentExpense = Color(0xFFD98324); // amber — expense
+const Color kAccentWithdrawal = Color(0xFF7A4FB0); // violet — household
+
+const Color kAccentSaleDark = Color(0xFF6CC6A4);
+const Color kAccentPurchaseDark = Color(0xFF82B7EE);
+const Color kAccentExpenseDark = Color(0xFFEDB36A);
+const Color kAccentWithdrawalDark = Color(0xFFC0A1E8);
 
 ThemeData buildAppTheme(Brightness brightness) {
-  final ColorScheme scheme = ColorScheme.fromSeed(
+  final bool isLight = brightness == Brightness.light;
+  ColorScheme scheme = ColorScheme.fromSeed(
     seedColor: kSeedColor,
     brightness: brightness,
   );
+
+  // Warm the light canvas so large surfaces feel calm rather than clinical.
+  if (isLight) {
+    scheme = scheme.copyWith(
+      surface: _kLightSurface,
+      surfaceContainerLowest: _kLightCard,
+      surfaceContainerLow: _kLightCard,
+      surfaceContainer: const Color(0xFFF1F0EB),
+      surfaceContainerHigh: const Color(0xFFEBEAE4),
+    );
+  }
+
+  final Color hairline = isLight
+      ? scheme.outlineVariant.withOpacity(0.6)
+      : scheme.outlineVariant.withOpacity(0.4);
 
   return ThemeData(
     useMaterial3: true,
@@ -33,10 +66,15 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
     ),
     cardTheme: CardTheme(
-      elevation: 0,
+      elevation: isLight ? 1 : 0,
+      shadowColor: Colors.black.withOpacity(isLight ? 0.06 : 0),
       clipBehavior: Clip.antiAlias,
-      color: scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: isLight ? _kLightCard : scheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: hairline),
+      ),
       margin: EdgeInsets.zero,
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -130,6 +168,23 @@ class Formats {
   }
 }
 
+/// Accent color for [type] that stays readable in both brightnesses.
+Color entryAccent(EntryType type, ColorScheme scheme) {
+  final bool dark = scheme.brightness == Brightness.dark;
+  switch (type) {
+    case EntryType.sale:
+      return dark ? kAccentSaleDark : kAccentSale;
+    case EntryType.purchase:
+      return dark ? kAccentPurchaseDark : kAccentPurchase;
+    case EntryType.expense:
+      return dark ? kAccentExpenseDark : kAccentExpense;
+    case EntryType.withdrawal:
+      return dark ? kAccentWithdrawalDark : kAccentWithdrawal;
+    case EntryType.unclear:
+      return scheme.error;
+  }
+}
+
 /// Colour and icon per entry type, kept consistent everywhere.
 class EntryVisuals {
   const EntryVisuals(this.color, this.icon);
@@ -140,16 +195,17 @@ class EntryVisuals {
   static EntryVisuals of(EntryType type, ColorScheme scheme) {
     switch (type) {
       case EntryType.sale:
-        return const EntryVisuals(
-            Color(0xFF2E7D32), Icons.trending_up_rounded);
+        return EntryVisuals(
+            entryAccent(type, scheme), Icons.trending_up_rounded);
       case EntryType.purchase:
-        return const EntryVisuals(
-            Color(0xFF1565C0), Icons.inventory_2_outlined);
+        return EntryVisuals(
+            entryAccent(type, scheme), Icons.inventory_2_outlined);
       case EntryType.expense:
-        return const EntryVisuals(
-            Color(0xFFEF6C00), Icons.receipt_long_outlined);
+        return EntryVisuals(
+            entryAccent(type, scheme), Icons.receipt_long_outlined);
       case EntryType.withdrawal:
-        return const EntryVisuals(Color(0xFF6A1B9A), Icons.home_outlined);
+        return EntryVisuals(
+            entryAccent(type, scheme), Icons.home_outlined);
       case EntryType.unclear:
         return EntryVisuals(scheme.error, Icons.help_outline_rounded);
     }

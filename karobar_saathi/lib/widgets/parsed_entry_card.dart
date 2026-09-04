@@ -8,6 +8,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/app_strings.dart';
+import '../l10n/entry_type_l10n.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 
@@ -90,6 +93,7 @@ class _ParsedEntryCardState extends State<ParsedEntryCard> {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
     final ParsedEntry entry = widget.entry;
     final bool unclear = entry.isUnclear;
     final bool stillAmbiguous =
@@ -119,7 +123,7 @@ class _ParsedEntryCardState extends State<ParsedEntryCard> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Entry ${widget.index + 1}',
+                    s.entryN(widget.index + 1),
                     style: theme.textTheme.titleSmall
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
@@ -127,7 +131,7 @@ class _ParsedEntryCardState extends State<ParsedEntryCard> {
                 IconButton(
                   onPressed: widget.onRemove,
                   icon: const Icon(Icons.close_rounded),
-                  tooltip: 'Discard entry ${widget.index + 1}',
+                  tooltip: s.discardEntryTooltip(widget.index + 1),
                 ),
               ],
             ),
@@ -154,7 +158,7 @@ class _ParsedEntryCardState extends State<ParsedEntryCard> {
                               size: 18, color: scheme.error),
                           const SizedBox(width: 6),
                           Text(
-                            'Needs your answer',
+                            s.needsYourAnswer,
                             style: theme.textTheme.labelLarge?.copyWith(
                               color: scheme.error,
                               fontWeight: FontWeight.w700,
@@ -164,14 +168,13 @@ class _ParsedEntryCardState extends State<ParsedEntryCard> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        entry.clarificationQuestion ??
-                            'Yeh transaction kya thi? Sale, khareed, kharcha ya ghar bheje?',
+                        entry.clarificationQuestion ?? s.defaultClarification,
                         style: theme.textTheme.bodyMedium
                             ?.copyWith(height: 1.35),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Pick the correct type below to save this entry.',
+                        s.pickTypeToSave,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                           fontStyle: FontStyle.italic,
@@ -184,7 +187,7 @@ class _ParsedEntryCardState extends State<ParsedEntryCard> {
             ],
 
             const SizedBox(height: 14),
-            Text('Transaction type', style: theme.textTheme.labelLarge),
+            Text(s.transactionType, style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -201,7 +204,7 @@ class _ParsedEntryCardState extends State<ParsedEntryCard> {
                         ? scheme.onSecondaryContainer
                         : EntryVisuals.of(type, scheme).color,
                   ),
-                  label: Text(type.label),
+                  label: Text(type.localizedLabel(s)),
                 );
               }).toList(),
             ),
@@ -215,9 +218,9 @@ class _ParsedEntryCardState extends State<ParsedEntryCard> {
               ],
               onChanged: _setAmount,
               decoration: InputDecoration(
-                labelText: 'Amount (Rs)',
+                labelText: s.amountRs,
                 prefixIcon: const Icon(Icons.payments_outlined),
-                errorText: entry.amount <= 0 ? 'Enter an amount' : null,
+                errorText: entry.amount <= 0 ? s.enterAmount : null,
               ),
             ),
 
@@ -227,9 +230,9 @@ class _ParsedEntryCardState extends State<ParsedEntryCard> {
               textCapitalization: TextCapitalization.sentences,
               onChanged: (String value) =>
                   widget.onChanged(entry.copyWith(note: value)),
-              decoration: const InputDecoration(
-                labelText: 'Note (optional)',
-                prefixIcon: Icon(Icons.notes_rounded),
+              decoration: InputDecoration(
+                labelText: s.noteOptional,
+                prefixIcon: const Icon(Icons.notes_rounded),
               ),
             ),
 
@@ -241,7 +244,7 @@ class _ParsedEntryCardState extends State<ParsedEntryCard> {
                       size: 16, color: scheme.onSurfaceVariant),
                   const SizedBox(width: 6),
                   Text(
-                    'Category: ${entry.category}',
+                    s.categoryLabel(entry.category!),
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: scheme.onSurfaceVariant),
                   ),

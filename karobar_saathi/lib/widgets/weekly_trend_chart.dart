@@ -3,6 +3,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 
@@ -11,20 +13,20 @@ class WeeklyTrendChart extends StatelessWidget {
 
   final List<TrendDay> days;
 
-  static const Color _salesColor = Color(0xFF2E7D32);
-  static const Color _expenseColor = Color(0xFFEF6C00);
-
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
+    final Color salesColor = entryAccent(EntryType.sale, scheme);
+    final Color expenseColor = entryAccent(EntryType.expense, scheme);
 
     if (days.isEmpty) {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Text(
-            'No trend data yet. Record a few days of transactions.',
+            s.noTrendData,
             style: theme.textTheme.bodyMedium,
           ),
         ),
@@ -47,13 +49,13 @@ class WeeklyTrendChart extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              'Last 7 days',
+              s.last7Days,
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(
-              'Sales against money going out',
+              s.salesVsOut,
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: scheme.onSurfaceVariant),
             ),
@@ -67,20 +69,20 @@ class WeeklyTrendChart extends StatelessWidget {
                           child: _DayColumn(
                             day: day,
                             maxValue: maxValue,
-                            salesColor: _salesColor,
-                            expenseColor: _expenseColor,
+                            salesColor: salesColor,
+                            expenseColor: expenseColor,
                           ),
                         ))
                     .toList(),
               ),
             ),
             const SizedBox(height: 16),
-            const Wrap(
+            Wrap(
               spacing: 20,
               runSpacing: 8,
               children: <Widget>[
-                _Legend(color: _salesColor, label: 'Sales'),
-                _Legend(color: _expenseColor, label: 'Money out'),
+                _Legend(color: salesColor, label: s.legendSales),
+                _Legend(color: expenseColor, label: s.legendMoneyOut),
               ],
             ),
           ],

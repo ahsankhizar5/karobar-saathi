@@ -3,6 +3,9 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/app_strings.dart';
+import '../models/models.dart';
 import '../theme/app_theme.dart';
 
 /// Large hero card for today's profit.
@@ -24,9 +27,10 @@ class ProfitHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
     final bool positive = profit >= 0;
     final Color accent =
-        positive ? const Color(0xFF2E7D32) : scheme.error;
+        positive ? entryAccent(EntryType.sale, scheme) : scheme.error;
 
     return Card(
       child: Container(
@@ -35,8 +39,8 @@ class ProfitHeroCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: <Color>[
-              accent.withOpacity(0.16),
-              scheme.surfaceContainerLow,
+              accent.withOpacity(0.14),
+              scheme.surfaceContainerLowest,
             ],
           ),
         ),
@@ -48,7 +52,7 @@ class ProfitHeroCard extends StatelessWidget {
               children: <Widget>[
                 Expanded(
                   child: Text(
-                    "Today's profit",
+                    s.todaysProfit,
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
@@ -60,13 +64,13 @@ class ProfitHeroCard extends StatelessWidget {
                       ? Icons.arrow_upward_rounded
                       : Icons.arrow_downward_rounded,
                   color: accent,
-                  semanticLabel: positive ? 'Profit' : 'Loss',
+                  semanticLabel: positive ? s.profit : s.loss,
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Semantics(
-              label: "Today's profit ${Formats.money(profit)}",
+              label: '${s.todaysProfit} ${Formats.money(profit)}',
               excludeSemantics: true,
               child: FittedBox(
                 fit: BoxFit.scaleDown,
@@ -85,28 +89,26 @@ class ProfitHeroCard extends StatelessWidget {
               children: <Widget>[
                 Expanded(
                   child: _MiniStat(
-                    label: 'Sales in',
+                    label: s.salesIn,
                     value: Formats.money(sales),
                     icon: Icons.trending_up_rounded,
-                    color: const Color(0xFF2E7D32),
+                    color: entryAccent(EntryType.sale, scheme),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _MiniStat(
-                    label: 'Money out',
+                    label: s.moneyOut,
                     value: Formats.money(expenses),
                     icon: Icons.trending_down_rounded,
-                    color: const Color(0xFFEF6C00),
+                    color: entryAccent(EntryType.expense, scheme),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             Text(
-              entryCount == 1
-                  ? '1 entry recorded today'
-                  : '$entryCount entries recorded today',
+              s.entriesRecordedToday(entryCount),
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: scheme.onSurfaceVariant),
             ),
@@ -253,6 +255,7 @@ class InsightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
 
     return Card(
       color: scheme.tertiaryContainer,
@@ -267,7 +270,7 @@ class InsightCard extends StatelessWidget {
                     color: scheme.onTertiaryContainer),
                 const SizedBox(width: 8),
                 Text(
-                  'Your business insight',
+                  s.businessInsight,
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: scheme.onTertiaryContainer,
                     fontWeight: FontWeight.w700,
@@ -292,7 +295,7 @@ class InsightCard extends StatelessWidget {
                 children: <Widget>[
                   Chip(
                     avatar: const Icon(Icons.star_rounded, size: 18),
-                    label: Text('Best: $topCategory'),
+                    label: Text(s.bestCategoryChip(topCategory!)),
                     backgroundColor:
                         scheme.onTertiaryContainer.withOpacity(0.10),
                     side: BorderSide.none,
@@ -301,7 +304,7 @@ class InsightCard extends StatelessWidget {
                     Chip(
                       avatar: const Icon(Icons.percent_rounded, size: 18),
                       label: Text(
-                        '${topCategoryMargin!.toStringAsFixed(1)}% margin',
+                        s.marginPct(topCategoryMargin!.toStringAsFixed(1)),
                       ),
                       backgroundColor:
                           scheme.onTertiaryContainer.withOpacity(0.10),

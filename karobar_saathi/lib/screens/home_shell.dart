@@ -4,7 +4,10 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/app_strings.dart';
 import '../providers/app_providers.dart';
+import '../providers/locale_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/transaction_sheet.dart';
 import 'dashboard_screen.dart';
@@ -21,38 +24,101 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
 
-  static const List<String> _titles = <String>[
-    'Karobar Saathi',
-    'My Ledger',
-    'Lender View (Concept)',
-  ];
+  String _titleFor(AppStrings s) {
+    switch (_index) {
+      case 1:
+        return s.titleLedger;
+      case 2:
+        return s.titleLender;
+      default:
+        return s.titleDashboard;
+    }
+  }
 
   Future<void> _addTransaction() async {
+    final AppStrings s = context.l10n;
     final bool saved = await showTransactionSheet(context);
     if (!saved || !mounted) return;
     await refreshShopData(ref);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Saved to your ledger.')),
+      SnackBar(content: Text(s.savedToLedger)),
     );
   }
 
+  Future<void> _showLanguageSheet() async {
+    final AppStrings s = context.l10n;
+    final AppLocale current = ref.read(localeProvider);
+    final AppLocale? picked = await showModalBottomSheet<AppLocale>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 4, 24, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      s.languageTitle,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      s.languageSubtitle,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              for (final AppLocale option in AppLocale.values)
+                RadioListTile<AppLocale>(
+                  value: option,
+                  groupValue: current,
+                  onChanged: (AppLocale? value) =>
+                      Navigator.of(context).pop(value),
+                  title: Text(
+                    option.nativeName,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(option == AppLocale.ur
+                      ? s.languageUrdu
+                      : s.languageEnglish),
+                  secondary: Icon(option == current
+                      ? Icons.check_circle_rounded
+                      : Icons.translate_rounded),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+    if (picked != null) {
+      await ref.read(localeProvider.notifier).setLocale(picked);
+    }
+  }
+
   void _showApiInfo() {
+    final AppStrings s = context.l10n;
     showDialog<void>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        title: const Text('About this build'),
+        title: Text(s.aboutTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text(
-              'Karobar Saathi turns spoken daily transactions into a '
-              'structured, explainable financial record.',
-            ),
+            Text(s.aboutBody),
             const SizedBox(height: 16),
             Text(
-              'Backend: $kApiBaseUrl',
+              '${s.aboutBackendLabel}: $kApiBaseUrl',
+              textDirection: TextDirection.ltr,
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
@@ -63,7 +129,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(s.close),
           ),
         ],
       ),
@@ -72,19 +138,25 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final AppStrings s = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_index]),
+        title: Text(_titleFor(s)),
         actions: <Widget>[
+          IconButton(
+            onPressed: _showLanguageSheet,
+            icon: const Icon(Icons.translate_rounded),
+            tooltip: s.actionLanguage,
+          ),
           IconButton(
             onPressed: () => refreshShopData(ref),
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh',
+            tooltip: s.actionRefresh,
           ),
           IconButton(
             onPressed: _showApiInfo,
             icon: const Icon(Icons.info_outline_rounded),
-            tooltip: 'About',
+            tooltip: s.actionAbout,
           ),
         ],
       ),
@@ -103,27 +175,27 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           : FloatingActionButton.extended(
               onPressed: _addTransaction,
               icon: const Icon(Icons.mic_rounded),
-              label: const Text('Add'),
-              tooltip: 'Add a transaction by voice or text',
+              label: Text(s.actionAdd),
+              tooltip: s.actionAddTooltip,
             ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (int value) => setState(() => _index = value),
-        destinations: const <Widget>[
+        destinations: <Widget>[
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard_rounded),
-            label: 'Dashboard',
+            icon: const Icon(Icons.dashboard_outlined),
+            selectedIcon: const Icon(Icons.dashboard_rounded),
+            label: s.navDashboard,
           ),
           NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book_rounded),
-            label: 'Ledger',
+            icon: const Icon(Icons.menu_book_outlined),
+            selectedIcon: const Icon(Icons.menu_book_rounded),
+            label: s.navLedger,
           ),
           NavigationDestination(
-            icon: Icon(Icons.account_balance_outlined),
-            selectedIcon: Icon(Icons.account_balance_rounded),
-            label: 'Lender',
+            icon: const Icon(Icons.account_balance_outlined),
+            selectedIcon: const Icon(Icons.account_balance_rounded),
+            label: s.navLender,
           ),
         ],
       ),

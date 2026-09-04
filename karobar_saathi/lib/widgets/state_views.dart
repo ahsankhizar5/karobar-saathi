@@ -3,6 +3,9 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/app_strings.dart';
+
 /// Centered progress indicator with an accessible label.
 class LoadingView extends StatelessWidget {
   const LoadingView({super.key, this.message});
@@ -37,17 +40,20 @@ class ErrorView extends StatelessWidget {
     required this.message,
     this.onRetry,
     this.icon = Icons.cloud_off_rounded,
-    this.title = 'Something went wrong',
+    this.title,
   });
 
   final String message;
   final VoidCallback? onRetry;
   final IconData icon;
-  final String title;
+
+  /// Defaults to the localized "Something went wrong" when null.
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final AppStrings s = context.l10n;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -57,7 +63,7 @@ class ErrorView extends StatelessWidget {
             Icon(icon, size: 56, color: theme.colorScheme.error),
             const SizedBox(height: 16),
             Text(
-              title,
+              title ?? s.somethingWrong,
               style: theme.textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
@@ -73,7 +79,7 @@ class ErrorView extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Try again'),
+                label: Text(s.tryAgain),
               ),
             ],
           ],

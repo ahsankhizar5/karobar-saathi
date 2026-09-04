@@ -160,10 +160,12 @@ final StateNotifierProvider<LenderEvidenceController, EvidenceState>
 });
 
 /// Raw ledger of the shop selected in the Lender View, shown in the
-/// "underlying records" modal.
+/// "underlying records" modal and used to build the 30-day activity calendar.
+/// The limit must cover a full month of seeded entries (~85/shop) or the
+/// calendar would undercount recorded days against the verified metric.
 final FutureProvider<List<LedgerEntry>> lenderLedgerProvider =
     FutureProvider<List<LedgerEntry>>(
         (ref) {
   final String userId = ref.watch(lenderSelectedShopProvider);
-  return ref.watch(apiServiceProvider).fetchLedger(userId, limit: 60);
+  return ref.watch(apiServiceProvider).fetchLedger(userId, limit: 200);
 });

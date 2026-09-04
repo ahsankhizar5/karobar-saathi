@@ -3,6 +3,9 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/app_strings.dart';
+import '../l10n/entry_type_l10n.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 
@@ -22,6 +25,7 @@ class LedgerEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
     final EntryVisuals visuals = EntryVisuals.of(entry.entryType, scheme);
     final DateTime? created = entry.createdAtLocal;
     final bool outflow = entry.entryType.isOutflow;
@@ -51,7 +55,7 @@ class LedgerEntryTile extends StatelessWidget {
                     children: <Widget>[
                       Expanded(
                         child: Text(
-                          entry.entryType.label,
+                          entry.entryType.localizedLabel(s),
                           style: theme.textTheme.titleSmall
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
@@ -131,7 +135,7 @@ class LedgerEntryTile extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'Unconfirmed',
+                            s.unconfirmed,
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: scheme.onErrorContainer,
                               fontWeight: FontWeight.w700,
@@ -147,7 +151,7 @@ class LedgerEntryTile extends StatelessWidget {
               IconButton(
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline_rounded),
-                tooltip: 'Delete entry',
+                tooltip: s.deleteEntryTooltip,
               ),
           ],
         ),

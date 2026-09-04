@@ -4,6 +4,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../providers/app_providers.dart';
 import '../theme/app_theme.dart';
@@ -18,11 +20,12 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<Dashboard> dashboard = ref.watch(dashboardProvider);
     final AsyncValue<AppUser> user = ref.watch(currentUserProvider);
+    final AppStrings s = context.l10n;
 
     return RefreshIndicator(
       onRefresh: () => refreshShopData(ref),
       child: dashboard.when(
-        loading: () => const LoadingView(message: 'Loading your books…'),
+        loading: () => LoadingView(message: s.loadingBooks),
         error: (Object error, StackTrace _) => ListView(
           // Keep pull-to-refresh usable in the error state.
           children: <Widget>[
@@ -59,6 +62,7 @@ class _DashboardBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final AppStrings s = context.l10n;
     final double runway = data.cashPosition;
 
     return ListView(
@@ -66,7 +70,7 @@ class _DashboardBody extends StatelessWidget {
       children: <Widget>[
         if (userName != null) ...<Widget>[
           Text(
-            'Assalam-o-Alaikum, $userName',
+            s.greeting(userName!),
             style: theme.textTheme.titleLarge
                 ?.copyWith(fontWeight: FontWeight.w700),
           ),
@@ -92,26 +96,26 @@ class _DashboardBody extends StatelessWidget {
           children: <Widget>[
             Expanded(
               child: StatCard(
-                label: 'Cash position',
+                label: s.cashPosition,
                 value: Formats.money(runway),
                 icon: Icons.account_balance_wallet_outlined,
-                caption: 'All money in minus out',
+                caption: s.cashPositionCaption,
                 color: runway >= 0
-                    ? const Color(0xFF00695C)
+                    ? theme.colorScheme.primary
                     : theme.colorScheme.error,
               ),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: StatCard(
-                label: 'Best category',
+                label: s.bestCategory,
                 value: (data.topCategory == null || data.topCategory!.isEmpty)
                     ? '—'
                     : data.topCategory!,
                 icon: Icons.category_outlined,
                 caption: data.topCategoryMargin == null
-                    ? 'Record more sales'
-                    : '${data.topCategoryMargin!.toStringAsFixed(1)}% margin',
+                    ? s.recordMoreSales
+                    : s.marginPct(data.topCategoryMargin!.toStringAsFixed(1)),
               ),
             ),
           ],

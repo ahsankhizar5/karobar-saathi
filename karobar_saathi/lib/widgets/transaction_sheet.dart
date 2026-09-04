@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:record_platform_interface/record_platform_interface.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../providers/app_providers.dart';
 import '../services/api_service.dart';
@@ -66,6 +68,21 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
 
   bool get _busy => _stage == _Stage.parsing || _stage == _Stage.saving;
 
+  /// Maps a recorder failure to a localized, user-facing message.
+  String _recorderMessage(RecorderException error) {
+    final AppStrings s = context.l10n;
+    switch (error.kind) {
+      case RecorderErrorKind.permissionDenied:
+        return s.micPermissionDenied;
+      case RecorderErrorKind.permissionPermanentlyDenied:
+        return s.micPermanentlyDenied;
+      case RecorderErrorKind.startFailed:
+        return s.recordStartFailed;
+      case RecorderErrorKind.saveFailed:
+        return s.recordSaveFailed;
+    }
+  }
+
   /// True while at least one draft is still ambiguous or amountless.
   bool get _hasUnclearDrafts => _drafts.any((ParsedEntry e) => e.isUnclear);
 
@@ -98,7 +115,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       if (!mounted) return;
       setState(() {
         _isRecording = false;
-        _error = error.message;
+        _error = _recorderMessage(error);
       });
       if (error.permanentlyDenied) {
         _promptOpenSettings();
@@ -115,7 +132,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     try {
       path = await _recorder.stop();
     } on RecorderException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) setState(() => _error = _recorderMessage(error));
     }
 
     if (!mounted) return;
@@ -126,9 +143,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     });
 
     if (path == null) {
-      setState(() => _error =
-          'That recording was too short to hear. Hold the button a little '
-          'longer, or type the transaction instead.');
+      setState(() => _error = context.l10n.recordingTooShort);
       return;
     }
     await _submitAudio(path);
@@ -148,12 +163,13 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
   }
 
   void _promptOpenSettings() {
+    final AppStrings s = context.l10n;
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
       SnackBar(
-        content: const Text('Microphone access is blocked for this app.'),
+        content: Text(s.micBlocked),
         action: SnackBarAction(
-          label: 'Settings',
+          label: s.settings,
           onPressed: () => _recorder.openSystemSettings(),
         ),
       ),
@@ -189,8 +205,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
   Future<void> _submitText() async {
     final String text = _textController.text.trim();
     if (text.isEmpty) {
-      setState(() => _error = 'Type what happened, for example '
-          '"Aaj 4500 ki sale hui aur 1200 ka maal khareeda".');
+      setState(() => _error = context.l10n.typeEntryEmpty);
       return;
     }
     setState(() {
@@ -215,8 +230,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     if (result.parsedEntries.isEmpty) {
       setState(() {
         _stage = _Stage.input;
-        _error = 'No transactions were found in "${result.rawTranscript}". '
-            'Try mentioning the amount and what it was for.';
+        _error = context.l10n.noTransactionsFound(result.rawTranscript);
       });
       return;
     }
@@ -311,12 +325,13 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
 
   Widget _buildInput(ThemeData theme) {
     final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Text(
-          'Type it, or hold the mic and say it',
+          s.typeOrSpeak,
           style: theme.textTheme.bodyMedium
               ?.copyWith(color: scheme.onSurfaceVariant),
         ),
@@ -329,11 +344,11 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
           maxLines: 6,
           enabled: !_busy && !_isRecording,
           textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            labelText: 'What happened today?',
-            hintText: 'Aaj 4500 ki sale hui aur 1200 ka maal khareeda',
+          decoration: InputDecoration(
+            labelText: s.whatHappenedLabel,
+            hintText: s.whatHappenedHint,
             alignLabelWithHint: true,
-            prefixIcon: Icon(Icons.edit_note_rounded),
+            prefixIcon: const Icon(Icons.edit_note_rounded),
           ),
         ),
         const SizedBox(height: 12),
@@ -347,8 +362,8 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
                 )
               : const Icon(Icons.auto_awesome_rounded),
           label: Text(_stage == _Stage.parsing
-              ? 'Reading your entry…'
-              : 'Convert to ledger entries'),
+              ? s.readingEntry
+              : s.convertToEntries),
         ),
 
         const SizedBox(height: 24),
@@ -357,7 +372,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
             const Expanded(child: Divider()),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text('or speak',
+              child: Text(s.orSpeak,
                   style: theme.textTheme.labelMedium
                       ?.copyWith(color: scheme.onSurfaceVariant)),
             ),
@@ -379,7 +394,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
         if (_pendingAudioPath != null && !_isRecording) ...<Widget>[
           const SizedBox(height: 12),
           Text(
-            'Recording captured. Uploading for transcription…',
+            s.recordingCaptured,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: scheme.onSurfaceVariant),
@@ -398,6 +413,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
 
   Widget _buildReview(ThemeData theme) {
     final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
     final int unclearCount =
         _drafts.where((ParsedEntry e) => e.isUnclear).length;
 
@@ -414,7 +430,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text('We heard',
+                Text(s.weHeard,
                     style: theme.textTheme.labelMedium
                         ?.copyWith(color: scheme.onSurfaceVariant)),
                 const SizedBox(height: 4),
@@ -444,9 +460,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    unclearCount == 1
-                        ? '1 entry needs your answer before saving.'
-                        : '$unclearCount entries need your answer before saving.',
+                    s.needsAnswerBanner(unclearCount),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: scheme.onErrorContainer,
                       fontWeight: FontWeight.w600,
@@ -491,18 +505,16 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
               : const Icon(Icons.check_rounded),
           label: Text(
             _stage == _Stage.saving
-                ? 'Saving…'
+                ? s.saving
                 : _hasUnclearDrafts
-                    ? 'Answer the question above to save'
-                    : _drafts.length == 1
-                        ? 'Save 1 entry'
-                        : 'Save ${_drafts.length} entries',
+                    ? s.answerToSave
+                    : s.saveNEntries(_drafts.length),
           ),
         ),
         const SizedBox(height: 8),
         TextButton(
           onPressed: _busy ? null : _backToInput,
-          child: const Text('Start over'),
+          child: Text(s.startOver),
         ),
       ],
     );
@@ -535,6 +547,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final AppStrings s = context.l10n;
     final bool reviewing = stage == _Stage.review || stage == _Stage.saving;
 
     return Padding(
@@ -545,13 +558,13 @@ class _Header extends StatelessWidget {
             IconButton(
               onPressed: onBack,
               icon: const Icon(Icons.arrow_back_rounded),
-              tooltip: 'Back to entry',
+              tooltip: s.backToEntry,
             )
           else
             const SizedBox(width: 12),
           Expanded(
             child: Text(
-              reviewing ? 'Check before saving' : 'Add transactions',
+              reviewing ? s.checkBeforeSaving : s.addTransactionsTitle,
               style: theme.textTheme.titleLarge
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
@@ -559,7 +572,7 @@ class _Header extends StatelessWidget {
           IconButton(
             onPressed: () => Navigator.of(context).maybePop(false),
             icon: const Icon(Icons.close_rounded),
-            tooltip: 'Close',
+            tooltip: s.close,
           ),
         ],
       ),
@@ -598,6 +611,7 @@ class _RecordControl extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
     final double ring = 96 + (isRecording ? amplitude * 28 : 0);
 
     return Column(
@@ -605,8 +619,8 @@ class _RecordControl extends StatelessWidget {
         Semantics(
           button: true,
           label: isRecording
-              ? 'Stop recording and send, $_timeLabel elapsed'
-              : 'Start voice recording',
+              ? s.recordingElapsed(_timeLabel)
+              : s.tapMicIdle,
           child: GestureDetector(
             onTap: enabled ? (isRecording ? onStop : onStart) : null,
             child: AnimatedContainer(
@@ -644,8 +658,8 @@ class _RecordControl extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           isRecording
-              ? 'Recording… $_timeLabel — tap to stop and send'
-              : 'Tap the mic and speak in Urdu or Roman Urdu',
+              ? s.recordingElapsed(_timeLabel)
+              : s.tapMicIdle,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: isRecording ? scheme.error : scheme.onSurfaceVariant,
@@ -657,7 +671,7 @@ class _RecordControl extends StatelessWidget {
           TextButton.icon(
             onPressed: onCancel,
             icon: const Icon(Icons.delete_outline_rounded),
-            label: const Text('Discard recording'),
+            label: Text(s.discardRecording),
           ),
         ],
       ],
