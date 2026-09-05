@@ -1,7 +1,8 @@
 /// Bottom sheet for adding transactions by voice or by typing.
 ///
-/// The manual text field is visible by default (it is the reliable path), with
-/// microphone recording offered alongside it.
+/// Voice is the primary path: the mic control sits at the top and starts
+/// instantly (the recorder is pre-created when the sheet opens). Typed entry
+/// remains available below for when speaking is not an option.
 library;
 
 import 'dart:async';
@@ -17,6 +18,7 @@ import '../providers/app_providers.dart';
 import '../services/api_service.dart';
 import '../services/recorder_service.dart';
 import '../widgets/parsed_entry_card.dart';
+import '../widgets/shimmer.dart';
 
 /// Opens the add-transaction sheet. Resolves to true when entries were saved.
 Future<bool> showTransactionSheet(BuildContext context) async {
@@ -45,18 +47,37 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
   String? _error;
 
   bool _isRecording = false;
-  String? _pendingAudioPath;
   Duration _recordDuration = Duration.zero;
   double _amplitude = 0;
   Timer? _durationTimer;
   StreamSubscription<Amplitude>? _amplitudeSub;
 
+  /// True while a parse request is in flight for recorded audio (as opposed
+  /// to typed text) — drives the staged status messages.
+  bool _parsingVoice = false;
+  int _parseElapsed = 0;
+  Timer? _parseTimer;
+
   List<ParsedEntry> _drafts = <ParsedEntry>[];
   String _rawTranscript = '';
 
   @override
+  void initState() {
+    super.initState();
+    // Wake the hosted backend the moment the sheet opens, so any cold start
+    // happens while the user is still speaking rather than after they finish.
+    unawaited(
+      ref.read(apiServiceProvider).warmUp(timeout: const Duration(seconds: 30)),
+    );
+    // Pre-create the platform recorder so the first mic tap starts capture
+    // with zero setup delay.
+    unawaited(ref.read(recorderServiceProvider).prepare());
+  }
+
+  @override
   void dispose() {
     _durationTimer?.cancel();
+    _parseTimer?.cancel();
     _amplitudeSub?.cancel();
     _textController.dispose();
     super.dispose();
@@ -139,7 +160,6 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     setState(() {
       _isRecording = false;
       _amplitude = 0;
-      _pendingAudioPath = path;
     });
 
     if (path == null) {
@@ -178,11 +198,42 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
 
   // -------------------------------------------------------------- parsing
 
+  /// Runs a 1-second tick while a parse request is in flight, so the sheet
+  /// can show live elapsed time and staged status instead of a frozen
+  /// spinner — a cold-starting server then reads as "working", not "dead".
+  void _startParseTimer({required bool voice}) {
+    _parseTimer?.cancel();
+    _parsingVoice = voice;
+    _parseElapsed = 0;
+    _parseTimer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
+      if (mounted) setState(() => _parseElapsed = t.tick);
+    });
+  }
+
+  void _stopParseTimer() {
+    _parseTimer?.cancel();
+    _parseTimer = null;
+  }
+
+  /// The status line shown while parsing, progressing through the real
+  /// pipeline stages (upload → transcribe → read) with a wake-up note once
+  /// the wait is long enough to imply a cold server.
+  String _parseStageLabel(AppStrings s) {
+    if (_parseElapsed < 4) {
+      return _parsingVoice ? s.sendingRecording : s.readingEntry;
+    }
+    if (_parseElapsed < 12) {
+      return _parsingVoice ? s.transcribingVoice : s.readingEntry;
+    }
+    return s.serverWakingShort;
+  }
+
   Future<void> _submitAudio(String path) async {
     setState(() {
       _stage = _Stage.parsing;
       _error = null;
     });
+    _startParseTimer(voice: true);
     try {
       final TranscriptResult result = await _api.transcribeAudio(
         userId: _userId,
@@ -191,9 +242,11 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
         fallbackText: _textController.text,
       );
       await _recorder.discard(path);
-      _pendingAudioPath = null;
+      _stopParseTimer();
       _applyResult(result);
     } on ApiException catch (error) {
+      _stopParseTimer();
+      await _recorder.discard(path);
       if (!mounted) return;
       setState(() {
         _stage = _Stage.input;
@@ -212,11 +265,14 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       _stage = _Stage.parsing;
       _error = null;
     });
+    _startParseTimer(voice: false);
     try {
       final TranscriptResult result =
           await _api.parseText(userId: _userId, text: text);
+      _stopParseTimer();
       _applyResult(result);
     } on ApiException catch (error) {
+      _stopParseTimer();
       if (!mounted) return;
       setState(() {
         _stage = _Stage.input;
@@ -337,13 +393,46 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Text(
-          s.typeOrSpeak,
+          s.speakOrType,
           style: theme.textTheme.bodyMedium
               ?.copyWith(color: scheme.onSurfaceVariant),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
 
-        // Manual text entry is always visible — the dependable path.
+        // Voice first — it is the app's core promise.
+        if (_stage == _Stage.parsing)
+          _ParsingPanel(
+            elapsed: _parseElapsed,
+            stageLabel: _parseStageLabel(s),
+            slowHint: s.parsingSlowHint,
+          )
+        else
+          _RecordControl(
+            isRecording: _isRecording,
+            amplitude: _amplitude,
+            duration: _recordDuration,
+            enabled: !_busy,
+            onStart: _startRecording,
+            onStop: _stopRecordingAndSend,
+            onCancel: _cancelRecording,
+          ),
+
+        const SizedBox(height: 24),
+        Row(
+          children: <Widget>[
+            const Expanded(child: Divider()),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(s.orType,
+                  style: theme.textTheme.labelMedium
+                      ?.copyWith(color: scheme.onSurfaceVariant)),
+            ),
+            const Expanded(child: Divider()),
+          ],
+        ),
+        const SizedBox(height: 20),
+
+        // Manual text entry — the dependable fallback path.
         TextField(
           controller: _textController,
           minLines: 3,
@@ -361,60 +450,12 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
         FilledButton.icon(
           onPressed: _busy || _isRecording ? null : _submitText,
           icon: _stage == _Stage.parsing
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const PulsingDot(size: 9)
               : const Icon(Icons.auto_awesome_rounded),
           label: Text(_stage == _Stage.parsing
-              ? s.readingEntry
+              ? _parseStageLabel(s)
               : s.convertToEntries),
         ),
-        if (_stage == _Stage.parsing) ...<Widget>[
-          const SizedBox(height: 8),
-          Text(
-            s.parsingSlowHint,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ],
-
-        const SizedBox(height: 24),
-        Row(
-          children: <Widget>[
-            const Expanded(child: Divider()),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(s.orSpeak,
-                  style: theme.textTheme.labelMedium
-                      ?.copyWith(color: scheme.onSurfaceVariant)),
-            ),
-            const Expanded(child: Divider()),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        _RecordControl(
-          isRecording: _isRecording,
-          amplitude: _amplitude,
-          duration: _recordDuration,
-          enabled: !_busy,
-          onStart: _startRecording,
-          onStop: _stopRecordingAndSend,
-          onCancel: _cancelRecording,
-        ),
-
-        if (_pendingAudioPath != null && !_isRecording) ...<Widget>[
-          const SizedBox(height: 12),
-          Text(
-            s.recordingCaptured,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ],
 
         if (_error != null) ...<Widget>[
           const SizedBox(height: 20),
@@ -512,11 +553,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
               ? null
               : _save,
           icon: _stage == _Stage.saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const PulsingDot(size: 9)
               : const Icon(Icons.check_rounded),
           label: Text(
             _stage == _Stage.saving
@@ -532,6 +569,101 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
           child: Text(s.startOver),
         ),
       ],
+    );
+  }
+}
+
+/// Live status panel shown while a recording or text is being parsed.
+///
+/// Shows the real pipeline stage, a running seconds counter and a skeleton of
+/// the entry being built, so even a cold-starting server feels alive.
+class _ParsingPanel extends StatelessWidget {
+  const _ParsingPanel({
+    required this.elapsed,
+    required this.stageLabel,
+    required this.slowHint,
+  });
+
+  final int elapsed;
+  final String stageLabel;
+  final String slowHint;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final bool slow = elapsed >= 12;
+
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: scheme.outlineVariant.withOpacity(0.5)),
+        ),
+        child: Column(
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(
+                  Icons.graphic_eq_rounded,
+                  color: scheme.primary,
+                  semanticLabel: stageLabel,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    stageLabel,
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$elapsed s',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontFeatures: const <FontFeature>[
+                        FontFeature.tabularFigures(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            // Skeleton shaped like the entry card being produced.
+            const Shimmer(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  ShimmerBox(width: 110, height: 12),
+                  SizedBox(height: 12),
+                  ShimmerBox(width: 210, height: 22, radius: 10),
+                  SizedBox(height: 12),
+                  ShimmerBox(height: 12),
+                ],
+              ),
+            ),
+            if (slow) ...<Widget>[
+              const SizedBox(height: 14),
+              Text(
+                slowHint,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

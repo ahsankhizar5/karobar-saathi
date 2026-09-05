@@ -69,7 +69,9 @@ class LedgerScreen extends ConsumerWidget {
 
     return RefreshIndicator(
       onRefresh: () => refreshShopData(ref),
+      // Keep last data on screen while a refresh is in flight — no flash.
       child: ledger.when(
+        skipLoadingOnReload: true,
         loading: () => LoadingView(message: s.loadingLedger),
         error: (Object error, StackTrace _) => ListView(
           children: <Widget>[

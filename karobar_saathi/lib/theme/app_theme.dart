@@ -9,6 +9,10 @@ import '../models/models.dart';
 /// Brand seed — a deep, calm emerald. Reads as trustworthy and bank-grade.
 const Color kSeedColor = Color(0xFF0B6B5B);
 
+/// Geometric sans used across the app; covers all weights via the variable
+/// font file, and falls back to system fonts for Urdu script.
+const String kFontFamily = 'Outfit';
+
 /// Warm off-white canvas for light mode — softer on the eye than pure white.
 const Color _kLightSurface = Color(0xFFF7F6F2);
 const Color _kLightCard = Color(0xFFFFFFFF);
@@ -51,6 +55,7 @@ ThemeData buildAppTheme(Brightness brightness) {
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
+    fontFamily: kFontFamily,
     scaffoldBackgroundColor: scheme.surface,
     visualDensity: VisualDensity.standard,
     appBarTheme: AppBarTheme(
@@ -63,6 +68,7 @@ ThemeData buildAppTheme(Brightness brightness) {
         fontSize: 22,
         fontWeight: FontWeight.w600,
         color: scheme.onSurface,
+        fontFamily: kFontFamily,
       ),
     ),
     cardTheme: CardTheme(
@@ -80,14 +86,22 @@ ThemeData buildAppTheme(Brightness brightness) {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size(64, 52),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          fontFamily: kFontFamily,
+        ),
         shape: const StadiumBorder(),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(64, 52),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          fontFamily: kFontFamily,
+        ),
         shape: const StadiumBorder(),
       ),
     ),

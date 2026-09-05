@@ -18,7 +18,8 @@ String errorText(BuildContext context, Object error) {
   return '$error';
 }
 
-/// Centered progress indicator with an accessible label.
+/// Centered pulsing-dots loader with an accessible label — the app's
+/// standard loading treatment (no circular spinners).
 class LoadingView extends StatelessWidget {
   const LoadingView({super.key, this.message});
 
@@ -26,6 +27,7 @@ class LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Center(
       child: Semantics(
         liveRegion: true,
@@ -33,13 +35,75 @@ class LoadingView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const CircularProgressIndicator(),
+            _PulsingDots(color: scheme.primary),
             if (message != null) ...<Widget>[
               const SizedBox(height: 16),
-              Text(message!, style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                message!,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: scheme.onSurfaceVariant),
+              ),
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Three dots that fade in sequence, sweeping left to right.
+class _PulsingDots extends StatefulWidget {
+  const _PulsingDots({required this.color});
+
+  final Color color;
+
+  @override
+  State<_PulsingDots> createState() => _PulsingDotsState();
+}
+
+class _PulsingDotsState extends State<_PulsingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  static const List<double> _delays = <double>[0.0, 0.18, 0.36];
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        for (final double delay in _delays)
+          FadeTransition(
+            opacity: _dotAnimation(delay),
+            child: Container(
+              width: 10,
+              height: 10,
+              margin: const EdgeInsets.symmetric(horizontal: 5),
+              decoration:
+                  BoxDecoration(color: widget.color, shape: BoxShape.circle),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Animation<double> _dotAnimation(double delay) {
+    return Tween<double>(begin: 0.25, end: 1).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Interval(delay, (delay + 0.4).clamp(0, 1),
+            curve: Curves.easeInOut),
       ),
     );
   }

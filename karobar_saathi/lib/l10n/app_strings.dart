@@ -77,10 +77,18 @@ class AppStrings {
   String get languageEnglish => _get('languageEnglish');
   String get languageUrdu => _get('languageUrdu');
 
-  // ---- About dialog ------------------------------------------------------
+  // ---- About dialog / sign-in ---------------------------------------------
   String get aboutTitle => _get('aboutTitle');
   String get aboutBody => _get('aboutBody');
-  String get aboutBackendLabel => _get('aboutBackendLabel');
+  String get aboutPrivacy => _get('aboutPrivacy');
+  String get aboutVersion => _get('aboutVersion');
+  String get signOut => _get('signOut');
+  String get signOutConfirmTitle => _get('signOutConfirmTitle');
+  String get signOutConfirmBody => _get('signOutConfirmBody');
+  String get loginChooseShopTitle => _get('loginChooseShopTitle');
+  String get loginChooseShopSubtitle => _get('loginChooseShopSubtitle');
+  String get loginDemoNote => _get('loginDemoNote');
+  String signInAs(String name) => _get('signInAs').replaceFirst('{name}', name);
   String get close => _get('close');
 
   // ---- Dashboard ---------------------------------------------------------
@@ -150,6 +158,11 @@ class AppStrings {
   String get parsingSlowHint => _get('parsingSlowHint');
   String get orSpeak => _get('orSpeak');
   String get tapMicIdle => _get('tapMicIdle');
+  String get speakOrType => _get('speakOrType');
+  String get orType => _get('orType');
+  String get sendingRecording => _get('sendingRecording');
+  String get transcribingVoice => _get('transcribingVoice');
+  String get serverWakingShort => _get('serverWakingShort');
   String recordingElapsed(String time) =>
       _get('recordingElapsed').replaceFirst('{time}', time);
   String get discardRecording => _get('discardRecording');
@@ -284,11 +297,21 @@ const Map<String, String> _en = <String, String>{
   'languageEnglish': 'English',
   'languageUrdu': 'اردو (Urdu)',
 
-  'aboutTitle': 'About this build',
+  'aboutTitle': 'About Karobar Saathi',
   'aboutBody':
       'Karobar Saathi turns spoken daily transactions into a structured, '
           'explainable financial record.',
-  'aboutBackendLabel': 'Backend',
+  'aboutPrivacy':
+      'Your records stay yours — a lender sees them only if you allow it.',
+  'aboutVersion': 'Version',
+  'signOut': 'Sign out',
+  'signOutConfirmTitle': 'Sign out?',
+  'signOutConfirmBody':
+      "You'll return to shop selection. Your saved books stay safe.",
+  'loginChooseShopTitle': 'Choose your shop',
+  'loginChooseShopSubtitle': 'Sign in to open its books',
+  'loginDemoNote': 'Demo shops — each opens its own sample books',
+  'signInAs': 'Sign in as {name}',
   'close': 'Close',
 
   'greeting': 'Assalam-o-Alaikum, {name}',
@@ -353,6 +376,11 @@ const Map<String, String> _en = <String, String>{
       'If the server was asleep, this can take up to a minute.',
   'orSpeak': 'or speak',
   'tapMicIdle': 'Tap the mic and speak in Urdu or Roman Urdu',
+  'speakOrType': 'Speak it, or type it below',
+  'orType': 'or type',
+  'sendingRecording': 'Sending your recording…',
+  'transcribingVoice': 'Transcribing your voice…',
+  'serverWakingShort': 'Server waking up — almost there…',
   'recordingElapsed': 'Recording… {time} — tap to stop and send',
   'discardRecording': 'Discard recording',
   'recordingCaptured': 'Recording captured. Uploading for transcription…',
@@ -472,11 +500,21 @@ const Map<String, String> _ur = <String, String>{
   'languageEnglish': 'English (انگریزی)',
   'languageUrdu': 'اردو',
 
-  'aboutTitle': 'اس ایپ کے بارے میں',
+  'aboutTitle': 'کاروبار ساتھی کے بارے میں',
   'aboutBody':
       'کاروبار ساتھی آپ کے روزمرہ کے بولے گئے لین دین کو ایک منظم اور قابلِ '
           'وضاحت مالی ریکارڈ میں تبدیل کرتا ہے۔',
-  'aboutBackendLabel': 'بیک اینڈ',
+  'aboutPrivacy':
+      'آپ کا ریکارڈ آپ کا ہی رہتا ہے — بینکَر اسے صرف آپ کی اجازت سے دیکھتا ہے۔',
+  'aboutVersion': 'ورژن',
+  'signOut': 'سائن آؤٹ',
+  'signOutConfirmTitle': 'سائن آؤٹ کریں؟',
+  'signOutConfirmBody':
+      'آپ دکان کے انتخاب پر واپس جائیں گے۔ آپ کا محفوظ کھاتہ سلامت رہے گا۔',
+  'loginChooseShopTitle': 'اپنی دکان چنیں',
+  'loginChooseShopSubtitle': 'کھاتہ کھولنے کے لیے سائن اِن کریں',
+  'loginDemoNote': 'ڈیمو دکانیں — ہر ایک اپنا نمونہ کھاتہ کھولتی ہے',
+  'signInAs': '{name} کے طور پر سائن اِن کریں',
   'close': 'بند کریں',
 
   'greeting': 'السلام علیکم، {name}',
@@ -541,6 +579,11 @@ const Map<String, String> _ur = <String, String>{
   'parsingSlowHint': 'اگر سرور سویا ہوا تھا تو اس میں ایک منٹ تک لگ سکتا ہے۔',
   'orSpeak': 'یا بولیں',
   'tapMicIdle': 'مائیک دبائیں اور اردو یا رومن اردو میں بولیں',
+  'speakOrType': 'بولیں، یا نیچے لکھیں',
+  'orType': 'یا لکھیں',
+  'sendingRecording': 'آپ کی ریکارڈنگ بھیجی جا رہی ہے…',
+  'transcribingVoice': 'آپ کی آواز تحریر میں بدلی جا رہی ہے…',
+  'serverWakingShort': 'سرور جاگ رہا ہے — بس ابھی…',
   'recordingElapsed': 'ریکارڈنگ… {time} — روکنے اور بھیجنے کے لیے دبائیں',
   'discardRecording': 'ریکارڈنگ ضائع کریں',
   'recordingCaptured': 'ریکارڈنگ محفوظ ہو گئی۔ تحریر کے لیے اپلوڈ ہو رہی ہے…',

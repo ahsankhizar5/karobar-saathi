@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/recorder_service.dart';
+import 'session_provider.dart';
 
 /// Shared HTTP client.
 final Provider<ApiService> apiServiceProvider = Provider<ApiService>((ref) {
@@ -24,9 +25,15 @@ final Provider<RecorderService> recorderServiceProvider =
 
 /// The shopkeeper whose books the app is showing.
 ///
-/// The prototype signs in as the first seeded demo shop.
-final StateProvider<String> currentUserIdProvider =
-    StateProvider<String>((ref) => kDemoShops.first.id);
+/// Derived from the sign-in session; while nobody is signed in the login
+/// screen is shown instead of any screen that reads this provider.
+final Provider<String> currentUserIdProvider = Provider<String>((ref) {
+  final AppUser? user = ref.watch(sessionProvider).signedInUser;
+  if (user == null) {
+    throw StateError('No signed-in user — the login screen should be shown.');
+  }
+  return user.id;
+});
 
 /// Profile of [currentUserIdProvider].
 final FutureProvider<AppUser> currentUserProvider =

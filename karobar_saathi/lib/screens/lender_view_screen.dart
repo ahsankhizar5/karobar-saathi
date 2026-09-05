@@ -731,6 +731,7 @@ class _RawLedgerModal extends ConsumerWidget {
           const Divider(height: 1),
           Flexible(
             child: ledger.when(
+              skipLoadingOnReload: true,
               loading: () => const Padding(
                 padding: EdgeInsets.symmetric(vertical: 64),
                 child: LoadingView(),

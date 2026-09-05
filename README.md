@@ -145,6 +145,8 @@ Revoking consent in the app (or using `PATCH /api/v1/evidence-profile/shop_001/c
 ✅ Six pre-recorded voice notes in `backend/seed_audio/` for repeatable demos
 ✅ In-app language switch (English ⇄ اردو) with full RTL layout, persisted
    across launches — every screen, dialog, and error message is localized
+✅ Login screen ("Choose your shop") with the session remembered across
+   launches and sign-out from the About dialog
 
 ### Demo-Simulated (Concept Only)
 🔶 Lender View: 3 seeded demo profiles (not real users)
@@ -211,6 +213,35 @@ step below was exercised against production on 2026-09-04:
   was re-driven live via a web build of the same Dart client (all screens
   loaded, all API calls 200). The visual polish itself is best judged by
   installing the APK.
+
+### v1.3.0 re-verification (2026-09-05, login screen + voice latency + dashboard redesign)
+
+- **Login screen**: new "Choose your shop" screen listing the three seeded
+  demo shops; the choice persists across launches (a reload goes straight
+  into the books) and About → Sign out — with a confirmation dialog —
+  returns to it. Verified live in a web build against the deployed API.
+- **Voice latency**: recording starts on button press (the recorder is
+  created up front), the backend is pinged warm at app open, every 10
+  minutes, and on app resume, and the transaction sheet shows
+  stage-by-stage feedback instead of a single spinner. Cold start on the
+  Render free tier was measured at ~23s; keep-warm means the first voice
+  transaction usually hits an awake backend. (The audio-record plugin is
+  Android-only, so this was verified by code review plus backend warm-up
+  evidence rather than web E2E.)
+- **Dashboard redesign**: greeting, profit hero card, stat cards, 7-day
+  trend chart, and insight card with a staggered entrance animation and
+  shimmer skeleton loaders. Also fixed a layout bug (an unbounded
+  cross-axis on the stat-card row) that silently dropped the trend chart
+  and insight card in release builds — a widget test now fails without
+  the fix.
+- **Refresh**: the AppBar refresh icon spins while re-fetching and the
+  last data stays on screen (no skeleton flash). Verified live: dashboard
+  and ledger both re-fetched 200 while the content stayed visible.
+- **About dialog**: rewritten for shopkeepers — what the app does, the
+  privacy promise, app version, signed-in shop, and Sign out. No backend
+  URLs or technical details.
+- **Test suite**: 11 tests pass, including new coverage for the dashboard
+  entrance cascade and the weekly trend chart; `flutter analyze` is clean.
 
 ## GitHub Release checklist
 

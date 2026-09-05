@@ -5,12 +5,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../l10n/app_localizations.dart';
 import '../l10n/app_strings.dart';
+import '../models/models.dart';
 import '../providers/app_providers.dart';
 import '../providers/locale_provider.dart';
-import '../services/api_service.dart';
+import '../providers/session_provider.dart';
 import '../widgets/transaction_sheet.dart';
 import 'dashboard_screen.dart';
 import 'ledger_screen.dart';
@@ -23,15 +25,40 @@ class HomeShell extends ConsumerStatefulWidget {
   ConsumerState<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends ConsumerState<HomeShell> {
+class _HomeShellState extends ConsumerState<HomeShell>
+    with WidgetsBindingObserver {
   int _index = 0;
+  Timer? _keepWarmTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // The hosted backend sleeps after idle; kick it awake while the user is
     // still looking at the loading screen so their first real request is fast.
     unawaited(ref.read(apiServiceProvider).warmUp());
+    // Render's free tier sleeps after ~15 idle minutes — a quiet health ping
+    // every 10 minutes keeps it awake for as long as the user is in the app,
+    // so a voice entry is never met with a cold start.
+    _keepWarmTimer = Timer.periodic(const Duration(minutes: 10), (_) {
+      unawaited(ref.read(apiServiceProvider).warmUp());
+    });
+  }
+
+  @override
+  void dispose() {
+    _keepWarmTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Coming back to the app after any stretch away — wake the backend
+    // before the user can ask it for anything.
+    if (state == AppLifecycleState.resumed) {
+      unawaited(ref.read(apiServiceProvider).warmUp());
+    }
   }
 
   String _titleFor(AppStrings s) {
@@ -114,8 +141,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     }
   }
 
-  void _showApiInfo() {
+  Future<void> _showAbout() async {
     final AppStrings s = context.l10n;
+    final PackageInfo info = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    final AppUser? user = ref.read(sessionProvider).signedInUser;
     showDialog<void>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
@@ -125,18 +155,40 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(s.aboutBody),
+            const SizedBox(height: 12),
+            Text(
+              s.aboutPrivacy,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
             const SizedBox(height: 16),
             Text(
-              '${s.aboutBackendLabel}: $kApiBaseUrl',
-              textDirection: TextDirection.ltr,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(fontFamily: 'monospace'),
+              '${s.aboutVersion} ${info.version}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
             ),
+            if (user != null) ...<Widget>[
+              const SizedBox(height: 4),
+              Text(
+                user.name,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
           ],
         ),
         actions: <Widget>[
+          if (user != null)
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _confirmSignOut();
+              },
+              child: Text(s.signOut),
+            ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(s.close),
@@ -146,9 +198,35 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
+  Future<void> _confirmSignOut() async {
+    final AppStrings s = context.l10n;
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(s.signOutConfirmTitle),
+        content: Text(s.signOutConfirmBody),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(s.keep),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(s.signOut),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await ref.read(sessionProvider.notifier).signOut();
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppStrings s = context.l10n;
+    // Spins whenever the dashboard is being (re)loaded, so the refresh
+    // button itself acknowledges the tap instead of flashing the screen.
+    final bool refreshing = ref.watch(dashboardProvider).isLoading;
     return Scaffold(
       appBar: AppBar(
         title: Text(_titleFor(s)),
@@ -159,12 +237,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             tooltip: s.actionLanguage,
           ),
           IconButton(
-            onPressed: () => refreshShopData(ref),
-            icon: const Icon(Icons.refresh_rounded),
+            onPressed: refreshing ? null : () => refreshShopData(ref),
             tooltip: s.actionRefresh,
+            icon: _SpinningIcon(
+              spinning: refreshing,
+              icon: Icons.refresh_rounded,
+            ),
           ),
           IconButton(
-            onPressed: _showApiInfo,
+            onPressed: _showAbout,
             icon: const Icon(Icons.info_outline_rounded),
             tooltip: s.actionAbout,
           ),
@@ -209,6 +290,40 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// An icon that continuously rotates while [spinning] is true.
+class _SpinningIcon extends StatefulWidget {
+  const _SpinningIcon({required this.spinning, required this.icon});
+
+  final bool spinning;
+  final IconData icon;
+
+  @override
+  State<_SpinningIcon> createState() => _SpinningIconState();
+}
+
+class _SpinningIconState extends State<_SpinningIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RotationTransition(
+      turns:
+          widget.spinning ? _controller : const AlwaysStoppedAnimation<double>(0),
+      child: Icon(widget.icon),
     );
   }
 }

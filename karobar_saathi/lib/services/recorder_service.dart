@@ -65,6 +65,16 @@ class RecorderService {
     _created = true;
   }
 
+  /// Creates the platform recorder ahead of time so the first [start] begins
+  /// capture with no setup delay. Advisory: failures surface via [start].
+  Future<void> prepare() async {
+    try {
+      await _ensureCreated();
+    } catch (_) {
+      // Ignore — start() will raise any real error.
+    }
+  }
+
   /// Requests the microphone permission, returning true when granted.
   Future<bool> ensurePermission() async {
     final PermissionStatus status = await Permission.microphone.request();
