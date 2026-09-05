@@ -2,12 +2,45 @@
 
 Karobar Saathi turns spoken daily business transactions into a confirmed ledger and explainable financial evidence for Pakistani informal micro-businesses.
 
+> **This is a working proof-of-concept, not a production product.** Anyone
+> installing the APK should read the
+> [production-readiness caveats](#production-readiness-caveats) below before
+> judging it as one.
+
 ## Project layout
 
 - `karobar_saathi/` — Flutter Android app (Riverpod, `record`)
 - `backend/` — FastAPI service (voice parsing, ledger, dashboard, evidence API)
 - `backend/seed_audio/` — six pre-recorded voice notes for repeatable voice-pipeline demos
 - `render.yaml` / `Dockerfile` — Render deployment configuration
+
+## Production-readiness caveats
+
+The app is polished enough to feel like a finished product — deliberately so,
+because the point is to demo the concept end-to-end. These are the things that
+would have to change before it could serve a real shopkeeper:
+
+- **Cold starts.** The backend runs on Render's free tier and sleeps after
+  ~15 minutes of inactivity. The first request after idle (opening the app,
+  submitting a transaction) can take up to about a minute while the service
+  wakes; the app recognizes this and shows a "server waking up" message instead
+  of an error. Every request after that is fast.
+- **Ephemeral demo data.** Storage is SQLite on the service's ephemeral disk.
+  Each deploy or restart resets everything back to the three seeded demo
+  profiles — transactions recorded in the app are not durable, and there are no
+  backups or data export.
+- **Shared demo identity.** There are no accounts or authentication. The
+  shopkeeper side of the app is hard-wired to a single demo user
+  (`shop_001`), so everyone who installs the APK sees and edits the same
+  ledger. Data is not private.
+- **Free-tier limits.** Voice transcription (Groq Whisper) and LLM parsing run
+  on a free-tier API key; sustained or heavy use can hit rate limits and
+  temporarily fail parsing until the quota resets.
+- **No real lending.** The lender view shows seeded demo shops with
+  rule-based "readiness" heuristics. No credit decisions, loan offers, or
+  lender integrations exist anywhere in the system.
+- **Sideloading only.** The APK is distributed via GitHub Release, not Play
+  Store, so Android will show an unknown-sources warning during install.
 
 ## Local backend setup
 
@@ -160,10 +193,29 @@ step below was exercised against production on 2026-09-04:
 - **Cleanup**: all test entries were deleted afterward and the dashboard was
   verified back at its pre-test baseline.
 
+### v1.2.0 re-verification (2026-09-04, after the timeout fix + UI declutter)
+
+- **Timeout fix**: the Android client previously timed out at 30s while the
+  Render free tier was cold-starting (~24s), which made the voice and typed
+  transaction buttons fail on the released APK. The client now allows 150s
+  for LLM-backed calls, pings `/health` at launch to pre-warm the backend,
+  and surfaces a localized "server waking up" message instead of an error.
+- **Live API re-check**: `POST /api/v1/voice/parse-text` with a
+  multi-transaction Roman-Urdu sentence returned 2 correct entries;
+  `POST /api/v1/voice/transcribe` with the single-sale and multi-transaction
+  seed audio files returned correct transcripts and 1 / 3 parsed entries
+  respectively; the evidence endpoint's 404 guard for unknown users was
+  confirmed (previously a 500).
+- **Redesign coverage**: the redesigned ledger tile (collapsed transcript,
+  tap-to-expand, single meta line) is covered by widget tests; the full UI
+  was re-driven live via a web build of the same Dart client (all screens
+  loaded, all API calls 200). The visual polish itself is best judged by
+  installing the APK.
+
 ## GitHub Release checklist
 
 1. Create a GitHub repository and push the source.
 2. Deploy the backend and determine its HTTPS API URL.
 3. Build the APK using that URL via `API_BASE_URL`.
-4. Create tag `v1.0.0-hackathon` and attach `app-release.apk` as the release asset.
+4. Create tag `vX.Y.Z` and attach `app-release.apk` as the release asset.
 5. Verify the installed APK can call `/health` and submit a text or voice transaction against the deployed API.

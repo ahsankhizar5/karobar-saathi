@@ -5,6 +5,18 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../l10n/app_strings.dart';
+import '../services/api_service.dart';
+
+/// Maps any thrown error to localized, user-facing text.
+///
+/// Client timeouts are treated specially: the hosted backend cold-starts
+/// after idle, so they read as "waking up" rather than as a failure.
+String errorText(BuildContext context, Object error) {
+  if (error is ApiException && error.isTimeout) {
+    return context.l10n.serverWaking;
+  }
+  return '$error';
+}
 
 /// Centered progress indicator with an accessible label.
 class LoadingView extends StatelessWidget {

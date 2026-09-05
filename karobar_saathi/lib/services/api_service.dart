@@ -1,6 +1,7 @@
 /// HTTP client for the Karobar Saathi FastAPI backend.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -19,13 +20,18 @@ const String kApiBaseUrl = String.fromEnvironment(
 
 /// Thrown for any non-2xx backend response or transport failure.
 class ApiException implements Exception {
-  ApiException(this.message, {this.statusCode, this.detail});
+  ApiException(this.message, {this.statusCode, this.detail, this.isTimeout = false});
 
   final String message;
   final int? statusCode;
 
   /// Decoded `detail` payload, when the backend supplied a structured one.
   final Map<String, dynamic>? detail;
+
+  /// True when the request outlived its client timeout — the hosted backend
+  /// cold-starts after idle, so this usually means "still waking up", not
+  /// "broken". The UI maps it to a localized retry hint.
+  final bool isTimeout;
 
   /// True when the evidence endpoint refused because consent is missing.
   bool get isConsentDenied => statusCode == 403;
@@ -37,14 +43,23 @@ class ApiException implements Exception {
 }
 
 class ApiService {
-  ApiService({http.Client? client, String? baseUrl})
-      : _client = client ?? http.Client(),
-        baseUrl = baseUrl ?? kApiBaseUrl;
+  ApiService({
+    http.Client? client,
+    String? baseUrl,
+    Duration? timeout,
+    Duration? llmTimeout,
+  })  : _client = client ?? http.Client(),
+        baseUrl = baseUrl ?? kApiBaseUrl,
+        _timeout = timeout ?? const Duration(seconds: 60),
+        _llmTimeout = llmTimeout ?? const Duration(seconds: 150);
 
   final http.Client _client;
   final String baseUrl;
 
-  static const Duration _timeout = Duration(seconds: 30);
+  // Voice + parse calls run speech-to-text and an LLM pass, and may also have
+  // to wait out a backend cold start — they need far more headroom than reads.
+  final Duration _timeout;
+  final Duration _llmTimeout;
   static const Map<String, String> _jsonHeaders = <String, String>{
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -58,6 +73,21 @@ class ApiService {
   );
 
   void dispose() => _client.close();
+
+  /// Best-effort `GET /health` used at app start.
+  ///
+  /// The hosted backend runs on a free tier that spins down after idle; waking
+  /// it up front means the user's first real request lands on a warm server
+  /// instead of racing the cold start.
+  Future<void> warmUp({Duration? timeout}) async {
+    try {
+      await _client
+          .get(_uri('/health'))
+          .timeout(timeout ?? const Duration(seconds: 150));
+    } catch (_) {
+      // Warm-up is advisory; real requests surface their own errors.
+    }
+  }
 
   // ---------------------------------------------------------------- dashboard
 
@@ -136,6 +166,7 @@ class ApiService {
       'POST',
       '/api/v1/voice/parse-text',
       body: <String, dynamic>{'user_id': userId, 'text': text},
+      timeout: _llmTimeout,
     ) as Map<String, dynamic>;
     return TranscriptResult.fromJson(json);
   }
@@ -164,14 +195,17 @@ class ApiService {
     request.files.add(await http.MultipartFile.fromPath('audio', audioFilePath));
 
     try {
-      final http.StreamedResponse streamed =
-          await _client.send(request).timeout(_timeout);
+      final http.StreamedResponse streamed = await _client
+          .send(request)
+          .timeout(_llmTimeout);
       final http.Response response = await http.Response.fromStream(streamed);
       final Map<String, dynamic> json =
           _decode(response) as Map<String, dynamic>;
       return TranscriptResult.fromJson(json);
     } on ApiException {
       rethrow;
+    } on TimeoutException {
+      throw ApiException('', isTimeout: true);
     } catch (error) {
       throw ApiException('Could not upload the recording: $error');
     }
@@ -228,18 +262,21 @@ class ApiService {
     String path, {
     Map<String, dynamic>? query,
     Map<String, String>? headers,
+    Duration? timeout,
   }) async {
     try {
       final http.Response response = await _client
           .get(_uri(path, query), headers: <String, String>{
         ..._jsonHeaders,
         ...?headers,
-      }).timeout(_timeout);
+      }).timeout(timeout ?? _timeout);
       return _decode(response);
     } on ApiException {
       rethrow;
     } on SocketException {
       throw ApiException(_offlineMessage);
+    } on TimeoutException {
+      throw ApiException('', isTimeout: true);
     } catch (error) {
       throw ApiException('Network error: $error');
     }
@@ -250,6 +287,7 @@ class ApiService {
     String path, {
     Object? body,
     Map<String, String>? headers,
+    Duration? timeout,
   }) async {
     try {
       final http.Request request = http.Request(method, _uri(path))
@@ -258,12 +296,14 @@ class ApiService {
         request.body = jsonEncode(body);
       }
       final http.StreamedResponse streamed =
-          await _client.send(request).timeout(_timeout);
+          await _client.send(request).timeout(timeout ?? _timeout);
       return _decode(await http.Response.fromStream(streamed));
     } on ApiException {
       rethrow;
     } on SocketException {
       throw ApiException(_offlineMessage);
+    } on TimeoutException {
+      throw ApiException('', isTimeout: true);
     } catch (error) {
       throw ApiException('Network error: $error');
     }

@@ -32,7 +32,7 @@ class DashboardScreen extends ConsumerWidget {
             SizedBox(
               height: MediaQuery.of(context).size.height * 0.7,
               child: ErrorView(
-                message: '$error',
+                message: errorText(context, error),
                 onRetry: () => ref.invalidate(dashboardProvider),
               ),
             ),
@@ -126,11 +126,7 @@ class _DashboardBody extends StatelessWidget {
         const SizedBox(height: 14),
 
         if (data.killerInsight.isNotEmpty)
-          InsightCard(
-            insight: data.killerInsight,
-            topCategory: data.topCategory,
-            topCategoryMargin: data.topCategoryMargin,
-          ),
+          InsightCard(insight: data.killerInsight),
       ],
     );
   }

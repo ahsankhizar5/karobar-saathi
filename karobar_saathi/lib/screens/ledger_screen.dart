@@ -54,7 +54,11 @@ class LedgerScreen extends ConsumerWidget {
       await refreshShopData(ref);
       messenger.showSnackBar(SnackBar(content: Text(s.entryDeleted)));
     } on ApiException catch (error) {
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          error.isTimeout ? s.serverWaking : error.message,
+        ),
+      ));
     }
   }
 
@@ -72,7 +76,7 @@ class LedgerScreen extends ConsumerWidget {
             SizedBox(
               height: MediaQuery.of(context).size.height * 0.7,
               child: ErrorView(
-                message: '$error',
+                message: errorText(context, error),
                 onRetry: () => ref.invalidate(ledgerProvider),
               ),
             ),

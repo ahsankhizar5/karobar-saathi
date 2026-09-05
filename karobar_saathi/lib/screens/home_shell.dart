@@ -1,6 +1,8 @@
 /// App shell with bottom navigation between Dashboard, Ledger and Lender View.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,6 +25,14 @@ class HomeShell extends ConsumerStatefulWidget {
 
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // The hosted backend sleeps after idle; kick it awake while the user is
+    // still looking at the loading screen so their first real request is fast.
+    unawaited(ref.read(apiServiceProvider).warmUp());
+  }
 
   String _titleFor(AppStrings s) {
     switch (_index) {

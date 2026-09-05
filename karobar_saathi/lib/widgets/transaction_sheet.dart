@@ -197,7 +197,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       if (!mounted) return;
       setState(() {
         _stage = _Stage.input;
-        _error = error.message;
+        _error = _apiErrorMessage(error);
       });
     }
   }
@@ -220,10 +220,16 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       if (!mounted) return;
       setState(() {
         _stage = _Stage.input;
-        _error = error.message;
+        _error = _apiErrorMessage(error);
       });
     }
   }
+
+  /// Transport timeouts usually mean the hosted backend is cold-starting, so
+  /// they get a dedicated "server is waking up" message instead of a raw
+  /// network error.
+  String _apiErrorMessage(ApiException error) =>
+      error.isTimeout ? context.l10n.serverWaking : error.message;
 
   void _applyResult(TranscriptResult result) {
     if (!mounted) return;
@@ -262,7 +268,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       if (!mounted) return;
       setState(() {
         _stage = _Stage.review;
-        _error = error.message;
+        _error = _apiErrorMessage(error);
       });
     }
   }
@@ -365,6 +371,15 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
               ? s.readingEntry
               : s.convertToEntries),
         ),
+        if (_stage == _Stage.parsing) ...<Widget>[
+          const SizedBox(height: 8),
+          Text(
+            s.parsingSlowHint,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
 
         const SizedBox(height: 24),
         Row(

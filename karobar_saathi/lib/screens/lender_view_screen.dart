@@ -34,14 +34,13 @@ class LenderViewScreen extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
       children: <Widget>[
         const _ConceptBanner(),
-        const SizedBox(height: 16),
-        _ShopSelector(selectedId: selectedId),
-        const SizedBox(height: 16),
-        _ConsentControl(
+        const SizedBox(height: 12),
+        _ApplicantCard(
+          selectedId: selectedId,
           shop: shop,
           consented: controller.consentSwitchValue,
           busy: state is EvidenceLoading,
-          onChanged: (bool value) => controller.setConsent(value),
+          onConsentChanged: (bool value) => controller.setConsent(value),
         ),
         const SizedBox(height: 16),
         switch (state) {
@@ -66,7 +65,8 @@ class LenderViewScreen extends ConsumerWidget {
   }
 }
 
-/// Prominent, permanent "this is a concept" disclosure.
+/// Prominent, permanent "this is a concept" disclosure — kept to two lines so
+/// it stays visible without burying the screen in text.
 class _ConceptBanner extends StatelessWidget {
   const _ConceptBanner();
 
@@ -79,30 +79,34 @@ class _ConceptBanner extends StatelessWidget {
     return Card(
       color: scheme.secondaryContainer,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Icon(Icons.science_outlined, color: scheme.onSecondaryContainer),
-            const SizedBox(width: 12),
+            Icon(
+              Icons.science_outlined,
+              size: 18,
+              color: scheme.onSecondaryContainer,
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
                     s.conceptBadge,
-                    style: theme.textTheme.labelLarge?.copyWith(
+                    style: theme.textTheme.labelMedium?.copyWith(
                       color: scheme.onSecondaryContainer,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 0.6,
+                      letterSpacing: 0.4,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 2),
                   Text(
-                    s.conceptBody,
+                    s.conceptShort,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSecondaryContainer,
-                      height: 1.4,
+                      height: 1.35,
                     ),
                   ),
                 ],
@@ -115,20 +119,32 @@ class _ConceptBanner extends StatelessWidget {
   }
 }
 
-/// The three seeded demo shops.
-class _ShopSelector extends ConsumerWidget {
-  const _ShopSelector({required this.selectedId});
+/// The three seeded demo shops plus the consent switch that gates the API —
+/// one container, one decision flow: pick an applicant, flip their consent.
+class _ApplicantCard extends ConsumerWidget {
+  const _ApplicantCard({
+    required this.selectedId,
+    required this.shop,
+    required this.consented,
+    required this.busy,
+    required this.onConsentChanged,
+  });
 
   final String selectedId;
+  final DemoShop shop;
+  final bool consented;
+  final bool busy;
+  final ValueChanged<bool> onConsentChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
     final AppStrings s = context.l10n;
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -137,7 +153,6 @@ class _ShopSelector extends ConsumerWidget {
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 12),
             ...kDemoShops.map((DemoShop shop) {
               final bool selected = shop.id == selectedId;
               return RadioListTile<String>(
@@ -154,48 +169,14 @@ class _ShopSelector extends ConsumerWidget {
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
-                subtitle: Text(
-                  '${s.shopDescription(shop.id, shop.description)} • ${shop.id}',
-                ),
+                subtitle: Text(s.shopDescription(shop.id, shop.description)),
                 contentPadding: EdgeInsets.zero,
               );
             }),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Consent switch that PATCHes the backend and re-requests the profile.
-class _ConsentControl extends StatelessWidget {
-  const _ConsentControl({
-    required this.shop,
-    required this.consented,
-    required this.busy,
-    required this.onChanged,
-  });
-
-  final DemoShop shop;
-  final bool consented;
-  final bool busy;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme scheme = theme.colorScheme;
-    final AppStrings s = context.l10n;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
+            const Divider(height: 24),
             SwitchListTile(
               value: consented,
-              onChanged: busy ? null : onChanged,
+              onChanged: busy ? null : onConsentChanged,
               contentPadding: EdgeInsets.zero,
               title: Text(
                 s.sharesData(shop.name),
@@ -205,27 +186,24 @@ class _ConsentControl extends StatelessWidget {
                 consented ? s.consentGrantedSub : s.consentRevokedSub,
               ),
             ),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: <Widget>[
-                  Icon(Icons.lock_outline_rounded,
-                      size: 18, color: scheme.onSurfaceVariant),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      s.consentHint,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    s.consentHint,
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: scheme.onSurfaceVariant),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
@@ -360,7 +338,7 @@ class _ProfileView extends ConsumerWidget {
                 const SizedBox(height: 12),
                 Text(
                   profile.readinessSummary,
-                  style: theme.textTheme.bodyLarge?.copyWith(
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     color: scheme.onPrimaryContainer,
                     height: 1.4,
                   ),
@@ -760,7 +738,7 @@ class _RawLedgerModal extends ConsumerWidget {
               error: (Object error, StackTrace _) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 48),
                 child: ErrorView(
-                  message: '$error',
+                  message: errorText(context, error),
                   onRetry: () => ref.invalidate(lenderLedgerProvider),
                 ),
               ),

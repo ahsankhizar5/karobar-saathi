@@ -1,4 +1,7 @@
-/// List tile rendering one saved ledger entry, including its raw transcript.
+/// List tile rendering one saved ledger entry.
+///
+/// The raw voice transcript stays collapsed behind a tap so the ledger scans
+/// like a clean statement; expanding a row reveals the evidence text.
 library;
 
 import 'package:flutter/material.dart';
@@ -9,177 +12,163 @@ import '../l10n/entry_type_l10n.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 
-class LedgerEntryTile extends StatelessWidget {
+class LedgerEntryTile extends StatefulWidget {
   const LedgerEntryTile({
     super.key,
     required this.entry,
     this.onDelete,
-    this.showTranscript = true,
   });
 
   final LedgerEntry entry;
   final VoidCallback? onDelete;
-  final bool showTranscript;
+
+  @override
+  State<LedgerEntryTile> createState() => _LedgerEntryTileState();
+}
+
+class _LedgerEntryTileState extends State<LedgerEntryTile> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
     final AppStrings s = context.l10n;
+    final LedgerEntry entry = widget.entry;
     final EntryVisuals visuals = EntryVisuals.of(entry.entryType, scheme);
     final DateTime? created = entry.createdAtLocal;
     final bool outflow = entry.entryType.isOutflow;
+    final bool hasNote = entry.note != null && entry.note!.isNotEmpty;
+    final bool hasTranscript =
+        entry.rawTranscript != null && entry.rawTranscript!.isNotEmpty;
+
+    final List<String> meta = <String>[
+      if (hasNote) entry.entryType.localizedLabel(s),
+      if (created != null) Formats.dayMonthTime(created),
+      if (entry.category != null && entry.category!.isNotEmpty) entry.category!,
+      if (!entry.confirmed) s.unconfirmed,
+    ];
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: visuals.color.withOpacity(0.14),
-                borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: hasTranscript
+            ? () => setState(() => _expanded = !_expanded)
+            : null,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: visuals.color.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(visuals.icon, color: visuals.color, size: 22),
               ),
-              child: Icon(visuals.icon, color: visuals.color, size: 22),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
+              const SizedBox(width: 14),
+              Expanded(
+                child: AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          entry.entryType.localizedLabel(s),
-                          style: theme.textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${outflow ? '−' : '+'}${Formats.money(entry.amount)}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: outflow ? scheme.error : visuals.color,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (entry.note != null && entry.note!.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 2),
-                    Text(
-                      entry.note!,
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                  ],
-                  if (showTranscript &&
-                      entry.rawTranscript != null &&
-                      entry.rawTranscript!.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHighest
-                            .withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          Icon(Icons.format_quote_rounded,
-                              size: 16, color: scheme.onSurfaceVariant),
-                          const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              entry.rawTranscript!,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontStyle: FontStyle.italic,
-                                color: scheme.onSurfaceVariant,
+                              hasNote
+                                  ? entry.note!
+                                  : entry.entryType.localizedLabel(s),
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
                               ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${outflow ? '−' : '+'}${Formats.money(entry.amount)}',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: outflow ? scheme.onSurface : visuals.color,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: <Widget>[
-                      if (created != null)
-                        _MetaLabel(
-                          icon: Icons.schedule_rounded,
-                          text: Formats.dayMonthTime(created),
-                        ),
-                      if (entry.category != null && entry.category!.isNotEmpty)
-                        _MetaLabel(
-                          icon: Icons.label_outline_rounded,
-                          text: entry.category!,
-                        ),
-                      if (!entry.confirmed)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: scheme.errorContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            s.unconfirmed,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: scheme.onErrorContainer,
-                              fontWeight: FontWeight.w700,
+                      if (meta.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 2),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                meta.join(' · '),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
                             ),
-                          ),
+                            if (hasTranscript)
+                              Tooltip(
+                                message: s.voiceNoteTooltip,
+                                child: AnimatedRotation(
+                                  turns: _expanded ? 0.5 : 0,
+                                  duration: const Duration(milliseconds: 200),
+                                  child: Icon(
+                                    Icons.expand_more_rounded,
+                                    size: 18,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
+                      ],
+                      if (hasTranscript && _expanded) ...<Widget>[
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Icon(
+                              Icons.format_quote_rounded,
+                              size: 16,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                entry.rawTranscript!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontStyle: FontStyle.italic,
+                                  color: scheme.onSurfaceVariant,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-            if (onDelete != null)
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline_rounded),
-                tooltip: s.deleteEntryTooltip,
-              ),
-          ],
+              if (widget.onDelete != null)
+                IconButton(
+                  onPressed: widget.onDelete,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  tooltip: s.deleteEntryTooltip,
+                ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-}
-
-class _MetaLabel extends StatelessWidget {
-  const _MetaLabel({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: theme.textTheme.labelSmall
-              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-      ],
     );
   }
 }

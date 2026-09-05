@@ -89,6 +89,7 @@ class AppStrings {
   String get loadingBooks => _get('loadingBooks');
   String get somethingWrong => _get('somethingWrong');
   String get tryAgain => _get('tryAgain');
+  String get serverWaking => _get('serverWaking');
   String get todaysProfit => _get('todaysProfit');
   String get profit => _get('profit');
   String get loss => _get('loss');
@@ -109,8 +110,6 @@ class AppStrings {
   String get legendSales => _get('legendSales');
   String get legendMoneyOut => _get('legendMoneyOut');
   String get businessInsight => _get('businessInsight');
-  String bestCategoryChip(String cat) =>
-      _get('bestCategoryChip').replaceFirst('{cat}', cat);
 
   // ---- Ledger ------------------------------------------------------------
   String get loadingLedger => _get('loadingLedger');
@@ -131,6 +130,7 @@ class AppStrings {
   String get entryDeleted => _get('entryDeleted');
   String get unconfirmed => _get('unconfirmed');
   String get deleteEntryTooltip => _get('deleteEntryTooltip');
+  String get voiceNoteTooltip => _get('voiceNoteTooltip');
 
   // ---- Entry types -------------------------------------------------------
   String get typeSale => _get('typeSale');
@@ -147,6 +147,7 @@ class AppStrings {
   String get whatHappenedHint => _get('whatHappenedHint');
   String get convertToEntries => _get('convertToEntries');
   String get readingEntry => _get('readingEntry');
+  String get parsingSlowHint => _get('parsingSlowHint');
   String get orSpeak => _get('orSpeak');
   String get tapMicIdle => _get('tapMicIdle');
   String recordingElapsed(String time) =>
@@ -191,7 +192,7 @@ class AppStrings {
 
   // ---- Lender view -------------------------------------------------------
   String get conceptBadge => _get('conceptBadge');
-  String get conceptBody => _get('conceptBody');
+  String get conceptShort => _get('conceptShort');
   String get sampleApplicant => _get('sampleApplicant');
 
   /// Localized trade description for a seeded demo shop, keyed by its id.
@@ -294,6 +295,9 @@ const Map<String, String> _en = <String, String>{
   'loadingBooks': 'Loading your books…',
   'somethingWrong': 'Something went wrong',
   'tryAgain': 'Try again',
+  'serverWaking':
+      'The server is waking up — this can take a minute after a pause. '
+          'Please try again in a moment.',
   'todaysProfit': "Today's profit",
   'profit': 'Profit',
   'loss': 'Loss',
@@ -312,7 +316,6 @@ const Map<String, String> _en = <String, String>{
   'legendSales': 'Sales',
   'legendMoneyOut': 'Money out',
   'businessInsight': 'Your business insight',
-  'bestCategoryChip': 'Best: {cat}',
 
   'loadingLedger': 'Loading your ledger…',
   'ledgerEmptyTitle': 'Your ledger is empty',
@@ -330,6 +333,7 @@ const Map<String, String> _en = <String, String>{
   'delete': 'Delete',
   'entryDeleted': 'Entry deleted.',
   'unconfirmed': 'Unconfirmed',
+  'voiceNoteTooltip': 'Show what was said',
   'deleteEntryTooltip': 'Delete entry',
 
   'typeSale': 'Sale / Bikri',
@@ -345,6 +349,8 @@ const Map<String, String> _en = <String, String>{
   'whatHappenedHint': 'Aaj 4500 ki sale hui aur 1200 ka maal khareeda',
   'convertToEntries': 'Convert to ledger entries',
   'readingEntry': 'Reading your entry…',
+  'parsingSlowHint':
+      'If the server was asleep, this can take up to a minute.',
   'orSpeak': 'or speak',
   'tapMicIdle': 'Tap the mic and speak in Urdu or Roman Urdu',
   'recordingElapsed': 'Recording… {time} — tap to stop and send',
@@ -394,11 +400,9 @@ const Map<String, String> _en = <String, String>{
   'discardEntryTooltip': 'Discard entry {n}',
 
   'conceptBadge': 'CONCEPT DEMO — NOT A LENDING PRODUCT',
-  'conceptBody':
-      'An illustration of what a partner lender or government department '
-          'would receive from the consent-gated evidence API. No credit '
-          'decision, score, or loan offer is made here, and the shops below '
-          'are seeded sample data.',
+  'conceptShort':
+      'Sample shops and demo data — no credit decisions or loan offers '
+          'happen here.',
   'sampleApplicant': 'Sample applicant',
   'shopDesc_shop_001': 'Tea stall',
   'shopDesc_shop_002': 'Kirana store',
@@ -479,6 +483,9 @@ const Map<String, String> _ur = <String, String>{
   'loadingBooks': 'آپ کا کھاتہ کھل رہا ہے…',
   'somethingWrong': 'کچھ غلط ہو گیا',
   'tryAgain': 'دوبارہ کوشش کریں',
+  'serverWaking':
+      'سرور جاگ رہا ہے — وقفے کے بعد اس میں ایک منٹ لگ سکتا ہے۔ ذرا دیر '
+          'بعد دوبارہ کوشش کریں۔',
   'todaysProfit': 'آج کا منافع',
   'profit': 'منافع',
   'loss': 'نقصان',
@@ -498,7 +505,6 @@ const Map<String, String> _ur = <String, String>{
   'legendSales': 'فروخت',
   'legendMoneyOut': 'اخراجات',
   'businessInsight': 'آپ کے کاروبار کی بصیرت',
-  'bestCategoryChip': 'بہترین: {cat}',
 
   'loadingLedger': 'آپ کا کھاتہ کھل رہا ہے…',
   'ledgerEmptyTitle': 'آپ کا کھاتہ خالی ہے',
@@ -516,6 +522,7 @@ const Map<String, String> _ur = <String, String>{
   'delete': 'حذف کریں',
   'entryDeleted': 'اندراج حذف ہو گیا۔',
   'unconfirmed': 'غیر تصدیق شدہ',
+  'voiceNoteTooltip': 'بتایا گیا جملہ دیکھیں',
   'deleteEntryTooltip': 'اندراج حذف کریں',
 
   'typeSale': 'فروخت / بکری',
@@ -531,6 +538,7 @@ const Map<String, String> _ur = <String, String>{
   'whatHappenedHint': 'آج 4500 کی سیل ہوئی اور 1200 کا مال خریدا',
   'convertToEntries': 'کھاتے کے اندراج میں بدلیں',
   'readingEntry': 'آپ کا اندراج پڑھا جا رہا ہے…',
+  'parsingSlowHint': 'اگر سرور سویا ہوا تھا تو اس میں ایک منٹ تک لگ سکتا ہے۔',
   'orSpeak': 'یا بولیں',
   'tapMicIdle': 'مائیک دبائیں اور اردو یا رومن اردو میں بولیں',
   'recordingElapsed': 'ریکارڈنگ… {time} — روکنے اور بھیجنے کے لیے دبائیں',
@@ -581,10 +589,9 @@ const Map<String, String> _ur = <String, String>{
   'discardEntryTooltip': 'اندراج {n} ضائع کریں',
 
   'conceptBadge': 'تصوراتی ڈیمو — یہ قرض دینے کی پروڈکٹ نہیں',
-  'conceptBody':
-      'یہ ایک مثال ہے کہ رضامندی سے محفوظ شدہ ثبوت API سے کوئی شراکت دار قرض '
-          'دہندہ یا سرکاری ادارہ کیا وصول کرے گا۔ یہاں کوئی کریڈٹ فیصلہ، اسکور '
-          'یا قرض کی پیشکش نہیں ہوتی، اور نیچے دی گئی دکانیں نمونہ ڈیٹا ہیں۔',
+  'conceptShort':
+      'نمونہ دکانیں اور ڈیمو ڈیٹا — یہاں کوئی کریڈٹ فیصلہ یا قرض کی '
+          'پیشکش نہیں ہوتی۔',
   'sampleApplicant': 'نمونہ درخواست گزار',
   'shopDesc_shop_001': 'چائے کا کھوکھا',
   'shopDesc_shop_002': 'کریانہ اسٹور',

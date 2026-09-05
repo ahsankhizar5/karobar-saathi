@@ -243,13 +243,9 @@ class InsightCard extends StatelessWidget {
   const InsightCard({
     super.key,
     required this.insight,
-    this.topCategory,
-    this.topCategoryMargin,
   });
 
   final String insight;
-  final String? topCategory;
-  final double? topCategoryMargin;
 
   @override
   Widget build(BuildContext context) {
@@ -287,32 +283,6 @@ class InsightCard extends StatelessWidget {
                 height: 1.4,
               ),
             ),
-            if (topCategory != null && topCategory!.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: <Widget>[
-                  Chip(
-                    avatar: const Icon(Icons.star_rounded, size: 18),
-                    label: Text(s.bestCategoryChip(topCategory!)),
-                    backgroundColor:
-                        scheme.onTertiaryContainer.withOpacity(0.10),
-                    side: BorderSide.none,
-                  ),
-                  if (topCategoryMargin != null)
-                    Chip(
-                      avatar: const Icon(Icons.percent_rounded, size: 18),
-                      label: Text(
-                        s.marginPct(topCategoryMargin!.toStringAsFixed(1)),
-                      ),
-                      backgroundColor:
-                          scheme.onTertiaryContainer.withOpacity(0.10),
-                      side: BorderSide.none,
-                    ),
-                ],
-              ),
-            ],
           ],
         ),
       ),
