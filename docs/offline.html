@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Karobar Saathi — Offline URL Card</title>
+  <meta name="description" content="Printable reference card with every Karobar Saathi URL: app download, API, docs, and repository." />
+  <link rel="icon" href="assets/icon.png" />
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --text: #1f2328;
+      --muted: #57606a;
+      --accent: #0d6f69;
+      --accent-soft: #e6f4f3;
+      --border: #d0d7de;
+      --code-bg: #f3f4f6;
+      --shadow: 0 1px 3px rgba(31,35,40,0.04), 0 8px 24px rgba(66,74,83,0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1117;
+        --surface: #161b22;
+        --text: #c9d1d9;
+        --muted: #8b949e;
+        --accent: #4ecdc4;
+        --accent-soft: #132d2b;
+        --border: #30363d;
+        --code-bg: #0d1117;
+        --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.4);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    a { color: var(--accent); text-decoration: none; word-break: break-all; }
+    a:hover { text-decoration: underline; }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+
+    header {
+      text-align: center;
+      padding: 32px 0 24px;
+    }
+    header img {
+      width: 80px;
+      height: 80px;
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+    h1 {
+      font-size: clamp(1.6rem, 5vw, 2.25rem);
+      margin: 14px 0 6px;
+      letter-spacing: -0.02em;
+    }
+    .tagline {
+      color: var(--muted);
+      font-size: 1rem;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow);
+    }
+    .card h2 {
+      margin: 0 0 14px;
+      font-size: 1.05rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .link-row {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .link-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 14px;
+      border-radius: 12px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+    }
+    .link-item strong {
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+    .link-item a {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.92rem;
+    }
+    .link-item p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+
+    .print-note {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-top: 28px;
+    }
+
+    @media print {
+      body { background: #fff; }
+      .card { box-shadow: none; break-inside: avoid; }
+      .no-print { display: none; }
+    }
+
+    @media (max-width: 600px) {
+      .container { padding: 20px 16px 48px; }
+      .card { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="assets/icon.png" alt="Karobar Saathi app icon" />
+      <h1>Karobar Saathi URL Card</h1>
+      <p class="tagline">Keep this page handy. All the important links in one place.</p>
+    </header>
+
+    <section class="card">
+      <h2><span>📱</span> Get the app</h2>
+      <div class="link-row">
+        <div class="link-item">
+          <strong>Latest APK release</strong>
+          <a href="https://github.com/ahsankhizar5/karobar-saathi/releases/latest" target="_blank" rel="noopener">github.com/ahsankhizar5/karobar-saathi/releases/latest</a>
+          <p>Download the Android APK and read the release notes.</p>
+        </div>
+        <div class="link-item">
+          <strong>GitHub repository</strong>
+          <a href="https://github.com/ahsankhizar5/karobar-saathi" target="_blank" rel="noopener">github.com/ahsankhizar5/karobar-saathi</a>
+          <p>Source code, issues, and the full README.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span>🌐</span> API &amp; docs</h2>
+      <div class="link-row">
+        <div class="link-item">
+          <span class="badge">Homepage</span>
+          <strong>API homepage</strong>
+          <a href="https://ahsankhizar5.github.io/karobar-saathi" target="_blank" rel="noopener">ahsankhizar5.github.io/karobar-saathi</a>
+          <p>Live status, endpoints, curl examples, and limitations.</p>
+        </div>
+        <div class="link-item">
+          <span class="badge">Backend</span>
+          <strong>Live API base URL</strong>
+          <a href="https://karobar-saathi.onrender.com" target="_blank" rel="noopener">karobar-saathi.onrender.com</a>
+          <p>The hosted FastAPI backend. Returns HTML in browsers and JSON with <code>Accept: application/json</code>.</p>
+        </div>
+        <div class="link-item">
+          <strong>Swagger UI</strong>
+          <a href="https://karobar-saathi.onrender.com/docs" target="_blank" rel="noopener">karobar-saathi.onrender.com/docs</a>
+          <p>Interactive API documentation and request tester.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span>🔐</span> Evidence API quick example</h2>
+      <div class="link-item">
+        <strong>Consent-gated evidence profile</strong>
+        <a href="https://karobar-saathi.onrender.com/api/v1/evidence-profile/shop_001" target="_blank" rel="noopener">karobar-saathi.onrender.com/api/v1/evidence-profile/shop_001</a>
+        <p>Requires the header <code>X-User-Consent: true</code>. Demo shop IDs are <code>shop_001</code>, <code>shop_002</code>, and <code>shop_003</code>.</p>
+      </div>
+    </section>
+
+    <p class="print-note no-print">
+      Tip: you can print this page to PDF for an offline reference card.
+    </p>
+  </div>
+</body>
+</html>
