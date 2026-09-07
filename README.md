@@ -31,8 +31,9 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" width="280" alt="Short demo of adding a transaction by voice" />
+  <img src="docs/demo.gif" width="360" alt="Short demo of adding a transaction by voice" />
 </p>
+<p align="center"><em>Voice note → parsed entry → confirmed ledger</em></p>
 
 > **This is a working proof-of-concept, not a production product.** Read the [production-readiness caveats](#production-readiness-caveats) before judging it as one.
 
