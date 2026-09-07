@@ -277,9 +277,9 @@ void main() {
     final _FakeApiService api = _FakeApiService()
       ..transcribeResult = const TranscriptResult(
         parsedEntries: <ParsedEntry>[
-          ParsedEntry(
+          const ParsedEntry(
             entryType: EntryType.sale,
-            amount: 500,
+            amount: 500.0,
             note: 'sale',
           ),
         ],
