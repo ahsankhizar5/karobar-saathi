@@ -26,6 +26,12 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.1
 
+dependency_overrides:
+  # record 5.2.1 pins record_linux ^0.7.2, which is incompatible with the
+  # record_platform_interface version resolved by newer pub solves. Override
+  # to a Linux implementation that implements the current platform interface.
+  record_linux: ^1.1.1
+
 flutter:
   uses-material-design: true
 
