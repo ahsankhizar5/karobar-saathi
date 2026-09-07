@@ -1,7 +1,7 @@
 name: karobar_saathi
 description: Karobar Saathi — voice-first financial evidence for Pakistani micro-businesses.
 publish_to: 'none'
-version: 1.4.0+5
+version: 1.4.1+6
 
 environment:
   sdk: '>=3.5.0 <4.0.0'

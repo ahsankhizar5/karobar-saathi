@@ -133,6 +133,10 @@ class RecorderService {
           encoder: encoder,
           sampleRate: 16000,
           numChannels: 1,
+          androidConfig: const AndroidRecordConfig(
+            audioSource: AndroidAudioSource.mic,
+            manageBluetooth: false,
+          ),
         ),
         path: path,
       );
