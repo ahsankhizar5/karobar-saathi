@@ -42,7 +42,7 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > android/karobar-saathi-release.jks
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/karobar-saathi-release.jks
           echo "$KEY_PROPERTIES" > android/key.properties
 
       - name: Build release APK
