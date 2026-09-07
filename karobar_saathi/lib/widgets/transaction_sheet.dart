@@ -150,6 +150,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     _amplitudeSub = null;
     _stateSub?.cancel();
     _stateSub = null;
+    if (!mounted) return;
     setState(() {
       _isRecording = false;
       _isStarting = false;
@@ -179,7 +180,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       setState(() => _isStarting = false);
 
       // Attach a fresh state listener to the new recorder instance.
-      await _stateSub?.cancel();
+      _stateSub?.cancel();
       _stateSub = _recorder.onStateChanged.listen(_onRecordStateChanged);
 
       _durationTimer?.cancel();
@@ -208,19 +209,21 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       });
     } on RecorderException catch (error) {
       _resetRecordingState();
+      if (!mounted) return;
       _showErrorBanner(_recorderMessage(error));
       if (error.permanentlyDenied) {
         _promptOpenSettings();
       }
     } catch (error) {
       _resetRecordingState();
+      if (!mounted) return;
       _showErrorBanner(context.l10n.recordStartFailed);
     }
   }
 
   Future<void> _stopRecordingAndSend({bool showMaxReached = false}) async {
     _durationTimer?.cancel();
-    await _amplitudeSub?.cancel();
+    _amplitudeSub?.cancel();
     _amplitudeSub = null;
 
     String? path;
@@ -231,7 +234,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     } catch (error) {
       if (mounted) _showErrorBanner(context.l10n.recordStartFailed);
     } finally {
-      await _stateSub?.cancel();
+      _stateSub?.cancel();
       _stateSub = null;
     }
 
@@ -259,10 +262,10 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
 
   Future<void> _cancelRecording() async {
     _durationTimer?.cancel();
-    await _amplitudeSub?.cancel();
+    _amplitudeSub?.cancel();
     _amplitudeSub = null;
     await _recorder.cancel();
-    await _stateSub?.cancel();
+    _stateSub?.cancel();
     _stateSub = null;
     if (!mounted) return;
     setState(() {

@@ -96,6 +96,9 @@ class _FakeRecorderService extends RecorderService {
   @override
   Future<void> openSystemSettings() async {}
 
+  @override
+  Future<void> discard(String? path) async {}
+
   void emitAmplitude(double current) {
     if (!_amplitudeController.isClosed) {
       _amplitudeController.add(Amplitude(current: current, max: current));
@@ -277,7 +280,7 @@ void main() {
     final _FakeApiService api = _FakeApiService()
       ..transcribeResult = const TranscriptResult(
         parsedEntries: <ParsedEntry>[
-          const ParsedEntry(
+          ParsedEntry(
             entryType: EntryType.sale,
             amount: 500.0,
             note: 'sale',
@@ -297,10 +300,13 @@ void main() {
     expect(find.byIcon(Icons.send_rounded), findsOneWidget);
 
     // Stop attempt 1 and submit
-    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.tap(find.byIcon(Icons.send_rounded), warnIfMissed: true);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(recorder.stopCalls, 1);
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     // Review stage is now visible. Tap 'Start over' to return to input stage.
     expect(find.text('Start over'), findsOneWidget);
