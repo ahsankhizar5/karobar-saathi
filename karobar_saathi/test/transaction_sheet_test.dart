@@ -278,10 +278,9 @@ void main() {
       ..transcribeResult = const TranscriptResult(
         parsedEntries: <ParsedEntry>[
           ParsedEntry(
-            id: '1',
-            type: TransactionType.sale,
+            entryType: EntryType.sale,
             amount: 500,
-            description: 'sale',
+            note: 'sale',
           ),
         ],
         rawTranscript: '500 ki sale',
