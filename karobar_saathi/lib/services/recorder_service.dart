@@ -3,10 +3,11 @@ library;
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:record_platform_interface/record_platform_interface.dart';
+import 'package:record/record.dart';
 
 /// Why a recording operation failed, so the UI can show a localized message
 /// (this service has no [BuildContext] to localize with itself).
@@ -18,11 +19,17 @@ enum RecorderErrorKind {
   /// caller should offer to open system settings.
   permissionPermanentlyDenied,
 
+  /// The chosen audio encoder is not supported on this device.
+  encoderUnsupported,
+
   /// The native recorder could not start capture.
   startFailed,
 
   /// The recording could not be finalized or saved.
   saveFailed,
+
+  /// A start request arrived while already recording (defensive).
+  alreadyRecording,
 }
 
 /// Raised when recording cannot start or stop cleanly.
@@ -49,27 +56,26 @@ class RecorderException implements Exception {
   String toString() => message;
 }
 
-/// Thin wrapper around the native Android recorder and file paths.
+/// Thin wrapper around the native recorder and file paths.
 class RecorderService {
-  RecorderService()
-      : _recorderId =
-            'karobar-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
+  RecorderService({AudioRecorder? recorder}) : _recorder = recorder ?? AudioRecorder();
 
-  final String _recorderId;
-  bool _created = false;
+  final AudioRecorder _recorder;
+  bool _starting = false;
   String? _currentPath;
 
-  Future<void> _ensureCreated() async {
-    if (_created) return;
-    await RecordPlatform.instance.create(_recorderId);
-    _created = true;
-  }
+  /// Live input amplitude, used to animate the recording indicator.
+  Stream<Amplitude> amplitudeStream({Duration interval = const Duration(milliseconds: 100)}) =>
+      _recorder.onAmplitudeChanged(interval);
+
+  /// Native recorder state (recording / paused / stopped).
+  Stream<RecordState> get onStateChanged => _recorder.onStateChanged();
 
   /// Creates the platform recorder ahead of time so the first [start] begins
   /// capture with no setup delay. Advisory: failures surface via [start].
   Future<void> prepare() async {
     try {
-      await _ensureCreated();
+      await _recorder.hasPermission();
     } catch (_) {
       // Ignore — start() will raise any real error.
     }
@@ -90,53 +96,57 @@ class RecorderService {
     );
   }
 
-  Future<bool> get isRecording async {
-    await _ensureCreated();
-    return RecordPlatform.instance.isRecording(_recorderId);
-  }
-
-  /// Live input amplitude, used to animate the recording indicator.
-  Stream<Amplitude> amplitudeStream() =>
-      Stream<Duration>.periodic(const Duration(milliseconds: 200)).asyncMap(
-        (Duration _) async {
-          await _ensureCreated();
-          return RecordPlatform.instance.getAmplitude(_recorderId);
-        },
-      );
-
-  /// Starts capturing to an m4a file in the app's temporary directory.
+  /// Starts capturing to a file in the app's temporary directory.
   Future<void> start() async {
-    await ensurePermission();
-    await _ensureCreated();
-
-    if (!await RecordPlatform.instance.hasPermission(_recorderId)) {
+    if (_starting || await _recorder.isRecording()) {
       throw RecorderException(
-        'Microphone permission is required.',
-        kind: RecorderErrorKind.permissionDenied,
+        'Already recording.',
+        kind: RecorderErrorKind.alreadyRecording,
       );
     }
-
-    final Directory dir = await getTemporaryDirectory();
-    final String path =
-        '${dir.path}/karobar_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    _currentPath = path;
+    _starting = true;
 
     try {
-      await RecordPlatform.instance.start(
-        _recorderId,
-        const RecordConfig(
-          encoder: AudioEncoder.aacLc,
+      await ensurePermission();
+
+      if (!await _recorder.hasPermission()) {
+        throw RecorderException(
+          'Microphone permission is required.',
+          kind: RecorderErrorKind.permissionDenied,
+        );
+      }
+
+      final Directory dir = await getTemporaryDirectory();
+      final String basePath =
+          '${dir.path}/karobar_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Some OEM encoders fail silently with AAC; fall back to WAV when needed.
+      final AudioEncoder encoder =
+          await _recorder.isEncoderSupported(AudioEncoder.aacLc)
+              ? AudioEncoder.aacLc
+              : AudioEncoder.wav;
+      final String path = '$basePath.${encoder == AudioEncoder.wav ? 'wav' : 'm4a'}';
+      _currentPath = path;
+
+      await _recorder.start(
+        RecordConfig(
+          encoder: encoder,
           sampleRate: 16000,
           numChannels: 1,
         ),
         path: path,
       );
+    } on RecorderException {
+      _currentPath = null;
+      rethrow;
     } catch (error) {
       _currentPath = null;
       throw RecorderException(
         'Could not start recording: $error',
         kind: RecorderErrorKind.startFailed,
       );
+    } finally {
+      _starting = false;
     }
   }
 
@@ -144,20 +154,22 @@ class RecorderService {
   /// written.
   Future<String?> stop() async {
     try {
-      await _ensureCreated();
-      final String? path =
-          await RecordPlatform.instance.stop(_recorderId) ?? _currentPath;
+      final String? path = await _recorder.stop();
       _currentPath = null;
       if (path == null) return null;
 
       final File file = File(path);
-      if (!await file.exists() || await file.length() < 512) {
-        if (await file.exists()) {
-          await file.delete();
-        }
+      if (!await file.exists()) return null;
+
+      final int length = await file.length();
+      if (length < 512) {
+        await file.delete();
         return null;
       }
       return path;
+    } on RecorderException {
+      _currentPath = null;
+      rethrow;
     } catch (error) {
       _currentPath = null;
       throw RecorderException(
@@ -170,17 +182,15 @@ class RecorderService {
   /// Aborts capture and deletes any partial file.
   Future<void> cancel() async {
     try {
-      await _ensureCreated();
-      final String? path =
-          await RecordPlatform.instance.stop(_recorderId) ?? _currentPath;
+      await _recorder.stop();
+      final String? path = _currentPath;
+      _currentPath = null;
       if (path != null) {
         final File file = File(path);
         if (await file.exists()) await file.delete();
       }
     } catch (_) {
       // Cancellation is best-effort.
-    } finally {
-      _currentPath = null;
     }
   }
 
@@ -197,9 +207,17 @@ class RecorderService {
 
   Future<void> openSystemSettings() => openAppSettings();
 
-  void dispose() {
-    if (_created) {
-      unawaited(RecordPlatform.instance.dispose(_recorderId));
-    }
+  Future<void> dispose() async {
+    await cancel();
+    await _recorder.dispose();
   }
+}
+
+/// Normalizes an amplitude reading to a 0..1 visual level.
+///
+/// [current] is expected in dBFS (negative, with louder values closer to 0).
+/// The result is curved so ordinary speech produces a visibly moving bar.
+double normalizeAmplitude(double current, {double floor = -50}) {
+  final double linear = ((current - floor) / -floor).clamp(0.0, 1.0);
+  return pow(linear, 0.7).toDouble();
 }

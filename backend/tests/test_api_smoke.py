@@ -25,6 +25,25 @@ def test_health_is_healthy(client):
     assert response.json() == {"status": "healthy"}
 
 
+def test_root_returns_html_for_browsers(client):
+    response = client.get("/", headers={"Accept": "text/html"})
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "Karobar Saathi API" in response.text
+    assert "API homepage" in response.text
+
+
+def test_root_returns_json_for_api_clients(client):
+    response = client.get("/", headers={"Accept": "application/json"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["app"] == "Karobar Saathi"
+    assert body["status"] == "running"
+    assert body["api_base"] == "/api/v1"
+
+
 def test_parse_text_uses_roman_urdu_rules_without_llm(client, monkeypatch):
     from app.services import parsing
 

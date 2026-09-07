@@ -1,51 +1,98 @@
-# Karobar Saathi
+<p align="center">
+  <img src="docs/assets/icon.png" width="120" alt="Karobar Saathi app icon" />
+</p>
 
-Karobar Saathi turns spoken daily business transactions into a confirmed ledger and explainable financial evidence for Pakistani informal micro-businesses.
+<h1 align="center">Karobar Saathi</h1>
 
-> **This is a working proof-of-concept, not a production product.** Anyone
-> installing the APK should read the
-> [production-readiness caveats](#production-readiness-caveats) below before
-> judging it as one.
+<p align="center">
+  <strong>Spoken transactions → confirmed ledger → explainable financial evidence</strong><br/>
+  For Pakistani informal micro-businesses.
+</p>
+
+<p align="center">
+  <a href="https://github.com/ahsankhizar5/karobar-saathi/actions/workflows/ci.yml">
+    <img src="https://github.com/ahsankhizar5/karobar-saathi/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  </a>
+  <a href="https://github.com/ahsankhizar5/karobar-saathi/releases/latest">
+    <img src="https://img.shields.io/github/v/release/ahsankhizar5/karobar-saathi?include_prereleases" alt="Latest release" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/github/license/ahsankhizar5/karobar-saathi" alt="License" />
+  </a>
+  <a href="https://ahsankhizar5.github.io/karobar-saathi">
+    <img src="https://img.shields.io/badge/API-homepage-0d6f69" alt="API homepage" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/ahsankhizar5/karobar-saathi/releases/latest">
+    <img src="https://img.shields.io/badge/Download%20APK-1.4.0-0d6f69?style=for-the-badge" alt="Download APK" />
+  </a>
+</p>
+
+<p align="center">
+  <img src="docs/demo.gif" width="280" alt="Short demo of adding a transaction by voice" />
+</p>
+
+> **This is a working proof-of-concept, not a production product.** Anyone installing the APK should read the [production-readiness caveats](#production-readiness-caveats) below before judging it as one.
+
+## What it does
+
+Karobar Saathi lets a shopkeeper record daily sales, purchases, expenses, and withdrawals by **speaking in Urdu or Roman Urdu**. The app turns that voice note into a structured ledger entry, asks for confirmation when something is unclear, and builds a simple dashboard with profit, trends, and a cash-flow insight.
+
+A separate **consent-gated evidence API** lets lenders or partners request the same financial summary — but only if the shopkeeper has explicitly allowed it.
+
+## Live API homepage
+
+**[ahsankhizar5.github.io/karobar-saathi](https://ahsankhizar5.github.io/karobar-saathi)**
+
+The API homepage includes a live `/health` status check, a full endpoint reference, copy-paste `curl` examples for the consent gate, and an honest limitations block.
+
+The bare API root (`/`) returns a friendly HTML page in browsers and the same JSON as before when called with `Accept: application/json`.
+
+## Screenshots
+
+| Login | Dashboard | Ledger |
+|-------|-----------|--------|
+| <img src="docs/screenshots/login_en.png" width="240" alt="Login screen" /> | <img src="docs/screenshots/dashboard_en.png" width="240" alt="Dashboard" /> | <img src="docs/screenshots/ledger_ur.png" width="240" alt="Ledger in Urdu" /> |
+
+| Add transaction (English) | Add transaction (Urdu) | Lender view |
+|---------------------------|------------------------|-------------|
+| <img src="docs/screenshots/transaction_en.png" width="240" alt="Transaction sheet in English" /> | <img src="docs/screenshots/transaction_ur.png" width="240" alt="Transaction sheet in Urdu" /> | <img src="docs/screenshots/lender_en.png" width="240" alt="Lender view" /> |
+
+## What's Real vs. Demo
+
+### Fully working (live in the demo)
+- Voice-to-ledger pipeline: voice note → Whisper transcription → LLM/rule parsing → confirmed ledger.
+- Typed transaction parsing with user confirmation and clarification questions for ambiguous input.
+- Dashboard with profit, 7-day trend, cash position, and a generated business insight.
+- Consent-gated evidence endpoint `/api/v1/evidence-profile/{user_id}`.
+- Auto-generated Swagger/ReDoc docs at `/docs` and `/redoc`.
+- Bilingual English/Urdu UI with full RTL layout, persisted across launches.
+- Login screen that remembers the chosen shop and sign-out from the About dialog.
+- WhatsApp/ChatGPT-style voice recording feedback: timer, waveform, cancel/send, and auto-stop.
+
+### Demo-simulated (concept only)
+- Lender view shows three seeded demo shops, not real applicants.
+- "Financial readiness" is a rule-based heuristic, not trained on real repayment outcomes.
+- No actual MFB/NBFC partner is connected.
+
+### Path to production
+Turning this into a real product requires local data hosting to meet SBP/SECP data-residency expectations, a regulatory sandbox or licensed partner for capital deployment, ASR fine-tuned on Pakistani bazaar vernacular, and real repayment outcome data before any lender will trust the evidence. This release proves the core pipeline and API-readiness, not lender trust itself.
 
 ## Project layout
 
 - `karobar_saathi/` — Flutter Android app (Riverpod, `record`)
 - `backend/` — FastAPI service (voice parsing, ledger, dashboard, evidence API)
-- `backend/seed_audio/` — six pre-recorded voice notes for repeatable voice-pipeline demos
+- `backend/seed_audio/` — pre-recorded voice notes for repeatable voice-pipeline demos
+- `docs/` — API homepage (`index.html`) and verification logs
+- `.github/workflows/` — CI and release automation
 - `render.yaml` / `Dockerfile` — Render deployment configuration
-
-## Production-readiness caveats
-
-The app is polished enough to feel like a finished product — deliberately so,
-because the point is to demo the concept end-to-end. These are the things that
-would have to change before it could serve a real shopkeeper:
-
-- **Cold starts.** The backend runs on Render's free tier and sleeps after
-  ~15 minutes of inactivity. The first request after idle (opening the app,
-  submitting a transaction) can take up to about a minute while the service
-  wakes; the app recognizes this and shows a "server waking up" message instead
-  of an error. Every request after that is fast.
-- **Ephemeral demo data.** Storage is SQLite on the service's ephemeral disk.
-  Each deploy or restart resets everything back to the three seeded demo
-  profiles — transactions recorded in the app are not durable, and there are no
-  backups or data export.
-- **Shared demo identity.** There are no accounts or authentication. The
-  shopkeeper side of the app is hard-wired to a single demo user
-  (`shop_001`), so everyone who installs the APK sees and edits the same
-  ledger. Data is not private.
-- **Free-tier limits.** Voice transcription (Groq Whisper) and LLM parsing run
-  on a free-tier API key; sustained or heavy use can hit rate limits and
-  temporarily fail parsing until the quota resets.
-- **No real lending.** The lender view shows seeded demo shops with
-  rule-based "readiness" heuristics. No credit decisions, loan offers, or
-  lender integrations exist anywhere in the system.
-- **Sideloading only.** The APK is distributed via GitHub Release, not Play
-  Store, so Android will show an unknown-sources warning during install.
 
 ## Local backend setup
 
 1. Install Python 3.11 and FFmpeg.
-2. Create a virtual environment, then install dependencies:
+2. Create a virtual environment and install dependencies:
 
    ```bash
    cd backend
@@ -54,20 +101,20 @@ would have to change before it could serve a real shopkeeper:
    pip install -r requirements.txt
    ```
 
-3. Copy `.env.example` to `.env` and add a Groq-compatible LLM API key. The LLM is used for strict structured transaction parsing; the application falls back to conservative parsing when no key is configured.
+3. Copy `.env.example` to `.env` and add a Groq-compatible LLM API key. The LLM is used for strict structured transaction parsing; the app falls back to conservative parsing when no key is configured.
 4. Start the API:
 
    ```bash
    uvicorn app.main:app --host 0.0.0.0 --port 8000
    ```
 
-5. Open Swagger at `http://127.0.0.1:8000/docs`.
+5. Open Swagger at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
 
-The initial start creates SQLite data and seeds exactly three concept-demo profiles: Ahmad Tea Stall, Naseem General Store, and Fatima Stitching.
+The first start creates SQLite data and seeds three demo profiles: Ahmad Tea Stall, Naseem General Store, and Fatima Stitching.
 
 ## Run the Flutter app
 
-1. Install Flutter 3.27 or newer and an Android SDK.
+1. Install Flutter 3.24.5 or newer and an Android SDK.
 2. Fetch packages:
 
    ```bash
@@ -89,7 +136,7 @@ The initial start creates SQLite data and seeds exactly three concept-demo profi
 
 ## Build the release APK
 
-Build only after deploying the backend, so the sideloaded APK does not point to localhost or the emulator. Before the first public build, generate and retain a local signing key:
+Build only after deploying the backend, so the sideloaded APK does not point to localhost. Before the first public build, generate and retain a local signing key:
 
 ```bash
 keytool -genkeypair -v -keystore C:/Users/you/karobar-saathi-release.jks -alias karobar-saathi -keyalg RSA -keysize 2048 -validity 10000
@@ -119,134 +166,38 @@ The included `render.yaml` deploys the Docker service to Render. Set `LLM_API_KE
 
 The free-tier SQLite directory is ephemeral. After a service restart, the demo data resets and the same three seeded profiles are recreated. Use persistent storage and a managed database before a production deployment.
 
+## Production-readiness caveats
+
+The app is polished enough to feel like a finished product — deliberately so, because the point is to demo the concept end-to-end. These are the things that would have to change before it could serve a real shopkeeper:
+
+- **Cold starts.** The backend runs on Render's free tier and sleeps after ~15 minutes of inactivity. The first request after idle can take up to about a minute while the service wakes; the app recognizes this and shows a "server waking up" message instead of an error.
+- **Ephemeral demo data.** Storage is SQLite on the service's ephemeral disk. Each deploy or restart resets everything back to the three seeded demo profiles — transactions recorded in the app are not durable, and there are no backups or data export.
+- **Shared demo identity.** There are no accounts or authentication. The shopkeeper side of the app is hard-wired to a single demo user (`shop_001`), so everyone who installs the APK sees and edits the same ledger. Data is not private.
+- **Free-tier limits.** Voice transcription (Groq Whisper) and LLM parsing run on a free-tier API key; sustained or heavy use can hit rate limits and temporarily fail parsing until the quota resets.
+- **No real lending.** The lender view shows seeded demo shops with rule-based "readiness" heuristics. No credit decisions, loan offers, or lender integrations exist anywhere in the system.
+- **Sideloading only.** The APK is distributed via GitHub Release, not Play Store, so Android will show an unknown-sources warning during install.
+
 ## Evidence API
 
 The lender screen and external API use the same computed evidence summary.
 
 ```bash
 curl -H "X-User-Consent: true" \
-  http://127.0.0.1:8000/api/v1/evidence-profile/shop_001
+  https://karobar-saathi.onrender.com/api/v1/evidence-profile/shop_001
 ```
 
-Revoking consent in the app (or using `PATCH /api/v1/evidence-profile/shop_001/consent`) makes the same request return HTTP `403`. This is intentional: the API never exposes evidence without both persisted consent and the explicit request header.
-
-## What's Real vs. Demo
-
-### Fully Working (Live in Demo)
-✅ Voice-to-ledger pipeline: voice note → Whisper (Groq hosted `whisper-large-v3`)
-   → LLM parsing → confirmed ledger
-✅ Typed transaction → LLM/rule parsing → confirmed database ledger
-✅ User confirmation/correction flow, including clarification questions for
-   ambiguous input (no hallucinated entries)
-✅ Dashboard with profit, trends, cash-flow insight
-✅ REST API endpoint `/api/v1/evidence-profile/{user_id}` with consent gate
-✅ Auto-generated API docs at `/docs`
-✅ Installable APK (GitHub Release), works against live backend
-✅ Six pre-recorded voice notes in `backend/seed_audio/` for repeatable demos
-✅ In-app language switch (English ⇄ اردو) with full RTL layout, persisted
-   across launches — every screen, dialog, and error message is localized
-✅ Login screen ("Choose your shop") with the session remembered across
-   launches and sign-out from the About dialog
-
-### Demo-Simulated (Concept Only)
-🔶 Lender View: 3 seeded demo profiles (not real users)
-🔶 "Financial Readiness" summary: rule-based heuristics, not trained on
-   real repayment outcomes
-🔶 Partner integrations: no actual MFB partnerships — architecture is
-   API-ready, no live lender connected
-
-### Path to Production (not built, stated for context)
-This build proves the core pipeline and the API-readiness of the architecture.
-Turning this into a real product requires: local data hosting to meet SBP/SECP
-data-residency expectations, a regulatory sandbox application or partnership
-with a licensed MFB/NBFC as the capital-deploying partner, ASR fine-tuned on
-Pakistani bazaar vernacular at scale, and — most critically — real repayment
-outcome data before any lender will trust this as underwriting evidence. We
-are not claiming to have solved lender trust in 48 hours; we're showing the
-wedge that makes solving it possible.
-
-## End-to-end verification (2026-09-04)
-
-The full UI was driven end-to-end against the live Render backend using a Flutter
-web build of the same Dart client (the Android emulator was unavailable on the
-test machine; both targets run the identical app code and API client). Every
-step below was exercised against production on 2026-09-04:
-
-- **Typed multi-transaction flow**: "Aaj subah 4500 ki chai aur biscuits ki sale
-  hui, aur shaam ko 1200 ka doodh aur cheeni khareeda" → parsed into 2 entries
-  (Sale Rs 4,500 / Purchase Rs 1,200) → reviewed and edited → `batch-confirm`
-  saved both → dashboard updated with exact math reconciliation (profit
-  Rs 3,300, sales Rs 4,500, out Rs 1,200).
-- **Clarification flow**: an amountless entry produced the Roman-Urdu question
-  "Bikri ki amount kya hai?" and disabled saving until a type and amount were
-  provided — no entry was invented.
-- **Ledger view**: saved entries listed with amount, note, original transcript,
-  timestamp, and category.
-- **Lender view**: explainable profile rendered (average daily sales, 30-day
-  consistency, cash buffer, loan range, traceable factors).
-- **Deletion**: ledger entries removed via the confirmation dialog.
-- **Voice pipeline**: three seed audio samples (single sale, multi-transaction,
-  unclear amount) submitted to `/api/v1/voice/transcribe` — all transcribed via
-  Groq Whisper and parsed correctly, with the ambiguous "3000 die" sample
-  returned as `unclear` plus a clarification question.
-- **Consent gate**: revoking consent via `PATCH .../consent` made
-  `GET /api/v1/evidence-profile/shop_001` return `403 consent_required` even
-  with the `X-User-Consent: true` header; re-granting restored `200`.
-- **Cleanup**: all test entries were deleted afterward and the dashboard was
-  verified back at its pre-test baseline.
-
-### v1.2.0 re-verification (2026-09-04, after the timeout fix + UI declutter)
-
-- **Timeout fix**: the Android client previously timed out at 30s while the
-  Render free tier was cold-starting (~24s), which made the voice and typed
-  transaction buttons fail on the released APK. The client now allows 150s
-  for LLM-backed calls, pings `/health` at launch to pre-warm the backend,
-  and surfaces a localized "server waking up" message instead of an error.
-- **Live API re-check**: `POST /api/v1/voice/parse-text` with a
-  multi-transaction Roman-Urdu sentence returned 2 correct entries;
-  `POST /api/v1/voice/transcribe` with the single-sale and multi-transaction
-  seed audio files returned correct transcripts and 1 / 3 parsed entries
-  respectively; the evidence endpoint's 404 guard for unknown users was
-  confirmed (previously a 500).
-- **Redesign coverage**: the redesigned ledger tile (collapsed transcript,
-  tap-to-expand, single meta line) is covered by widget tests; the full UI
-  was re-driven live via a web build of the same Dart client (all screens
-  loaded, all API calls 200). The visual polish itself is best judged by
-  installing the APK.
-
-### v1.3.0 re-verification (2026-09-05, login screen + voice latency + dashboard redesign)
-
-- **Login screen**: new "Choose your shop" screen listing the three seeded
-  demo shops; the choice persists across launches (a reload goes straight
-  into the books) and About → Sign out — with a confirmation dialog —
-  returns to it. Verified live in a web build against the deployed API.
-- **Voice latency**: recording starts on button press (the recorder is
-  created up front), the backend is pinged warm at app open, every 10
-  minutes, and on app resume, and the transaction sheet shows
-  stage-by-stage feedback instead of a single spinner. Cold start on the
-  Render free tier was measured at ~23s; keep-warm means the first voice
-  transaction usually hits an awake backend. (The audio-record plugin is
-  Android-only, so this was verified by code review plus backend warm-up
-  evidence rather than web E2E.)
-- **Dashboard redesign**: greeting, profit hero card, stat cards, 7-day
-  trend chart, and insight card with a staggered entrance animation and
-  shimmer skeleton loaders. Also fixed a layout bug (an unbounded
-  cross-axis on the stat-card row) that silently dropped the trend chart
-  and insight card in release builds — a widget test now fails without
-  the fix.
-- **Refresh**: the AppBar refresh icon spins while re-fetching and the
-  last data stays on screen (no skeleton flash). Verified live: dashboard
-  and ledger both re-fetched 200 while the content stayed visible.
-- **About dialog**: rewritten for shopkeepers — what the app does, the
-  privacy promise, app version, signed-in shop, and Sign out. No backend
-  URLs or technical details.
-- **Test suite**: 11 tests pass, including new coverage for the dashboard
-  entrance cascade and the weekly trend chart; `flutter analyze` is clean.
+Revoking consent in the app (or using `PATCH /api/v1/evidence-profile/shop_001/consent`) makes the same request return HTTP `403`. The API never exposes evidence without both persisted consent and the explicit request header.
 
 ## GitHub Release checklist
 
-1. Create a GitHub repository and push the source.
-2. Deploy the backend and determine its HTTPS API URL.
-3. Build the APK using that URL via `API_BASE_URL`.
-4. Create tag `vX.Y.Z` and attach `app-release.apk` as the release asset.
-5. Verify the installed APK can call `/health` and submit a text or voice transaction against the deployed API.
+1. Deploy the backend and determine its HTTPS API URL.
+2. Build the APK using that URL via `API_BASE_URL`.
+3. Create tag `vX.Y.Z` and attach `app-release.apk` as the release asset.
+4. Verify the installed APK can call `/health` and submit a text or voice transaction against the deployed API.
+
+## Verification, changelog, and license
+
+- End-to-end verification logs: [`docs/VERIFICATION.md`](docs/VERIFICATION.md)
+- Release history: [`CHANGELOG.md`](CHANGELOG.md)
+- License: [`LICENSE`](LICENSE) (MIT)
+- The app uses the [Outfit](karobar_saathi/assets/fonts/OFL.txt) font under the SIL Open Font License.

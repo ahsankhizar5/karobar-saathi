@@ -1,15 +1,18 @@
 /// Bottom sheet for adding transactions by voice or by typing.
 ///
 /// Voice is the primary path: the mic control sits at the top and starts
-/// instantly (the recorder is pre-created when the sheet opens). Typed entry
-/// remains available below for when speaking is not an option.
+/// instantly with optimistic visual feedback (waveform, elapsed timer,
+/// pulsing indicator). Typed entry remains available below for when speaking
+/// is not an option.
 library;
 
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:record_platform_interface/record_platform_interface.dart';
+import 'package:record/record.dart';
 
 import '../l10n/app_localizations.dart';
 import '../l10n/app_strings.dart';
@@ -19,6 +22,12 @@ import '../services/api_service.dart';
 import '../services/recorder_service.dart';
 import '../widgets/parsed_entry_card.dart';
 import '../widgets/shimmer.dart';
+
+/// Maximum length of a voice recording before it is auto-sent.
+const Duration _kMaxRecordDuration = Duration(seconds: 60);
+
+/// How many amplitude samples to keep for the waveform visualizer.
+const int _kWaveformSamples = 40;
 
 /// Opens the add-transaction sheet. Resolves to true when entries were saved.
 Future<bool> showTransactionSheet(BuildContext context) async {
@@ -47,10 +56,13 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
   String? _error;
 
   bool _isRecording = false;
+  bool _isStarting = false;
   Duration _recordDuration = Duration.zero;
   double _amplitude = 0;
+  final List<double> _waveform = <double>[];
   Timer? _durationTimer;
   StreamSubscription<Amplitude>? _amplitudeSub;
+  StreamSubscription<RecordState>? _stateSub;
 
   /// True while a parse request is in flight for recorded audio (as opposed
   /// to typed text) — drives the staged status messages.
@@ -61,31 +73,38 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
   List<ParsedEntry> _drafts = <ParsedEntry>[];
   String _rawTranscript = '';
 
+  late final RecorderService _recorder;
+  late final ApiService _api;
+  late final String _userId;
+
   @override
   void initState() {
     super.initState();
+    _recorder = ref.read(recorderServiceProvider);
+    _api = ref.read(apiServiceProvider);
+    _userId = ref.read(currentUserIdProvider);
+
     // Wake the hosted backend the moment the sheet opens, so any cold start
     // happens while the user is still speaking rather than after they finish.
-    unawaited(
-      ref.read(apiServiceProvider).warmUp(timeout: const Duration(seconds: 30)),
-    );
+    unawaited(_api.warmUp(timeout: const Duration(seconds: 30)));
     // Pre-create the platform recorder so the first mic tap starts capture
     // with zero setup delay.
-    unawaited(ref.read(recorderServiceProvider).prepare());
+    unawaited(_recorder.prepare());
+    _stateSub = _recorder.onStateChanged.listen(_onRecordStateChanged);
   }
 
   @override
   void dispose() {
+    if (_isRecording) {
+      unawaited(_recorder.cancel());
+    }
     _durationTimer?.cancel();
     _parseTimer?.cancel();
     _amplitudeSub?.cancel();
+    _stateSub?.cancel();
     _textController.dispose();
     super.dispose();
   }
-
-  RecorderService get _recorder => ref.read(recorderServiceProvider);
-  ApiService get _api => ref.read(apiServiceProvider);
-  String get _userId => ref.read(currentUserIdProvider);
 
   bool get _busy => _stage == _Stage.parsing || _stage == _Stage.saving;
 
@@ -97,7 +116,10 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
         return s.micPermissionDenied;
       case RecorderErrorKind.permissionPermanentlyDenied:
         return s.micPermanentlyDenied;
+      case RecorderErrorKind.encoderUnsupported:
+        return s.recordEncoderUnsupported;
       case RecorderErrorKind.startFailed:
+      case RecorderErrorKind.alreadyRecording:
         return s.recordStartFailed;
       case RecorderErrorKind.saveFailed:
         return s.recordSaveFailed;
@@ -107,44 +129,89 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
   /// True while at least one draft is still ambiguous or amountless.
   bool get _hasUnclearDrafts => _drafts.any((ParsedEntry e) => e.isUnclear);
 
-  // ------------------------------------------------------------- recording
+  void _showErrorBanner(String message) {
+    if (!mounted) return;
+    setState(() => _error = message);
+  }
 
-  Future<void> _startRecording() async {
-    setState(() => _error = null);
-    try {
-      await _recorder.start();
-      _durationTimer?.cancel();
-      _durationTimer = Timer.periodic(const Duration(seconds: 1), (Timer _) {
-        if (mounted) {
-          setState(() => _recordDuration += const Duration(seconds: 1));
-        }
-      });
-      _amplitudeSub?.cancel();
-      _amplitudeSub = _recorder.amplitudeStream().listen((Amplitude amp) {
-        if (!mounted) return;
-        // Map roughly -45..0 dBFS onto 0..1.
-        final double normalized = ((amp.current + 45) / 45).clamp(0.0, 1.0);
-        setState(() => _amplitude = normalized);
-      });
-      if (mounted) {
-        setState(() {
-          _isRecording = true;
-          _recordDuration = Duration.zero;
-        });
-      }
-    } on RecorderException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _isRecording = false;
-        _error = _recorderMessage(error);
-      });
-      if (error.permanentlyDenied) {
-        _promptOpenSettings();
+  void _onRecordStateChanged(RecordState state) {
+    if (!mounted) return;
+    if (state == RecordState.stop || state == RecordState.pause) {
+      if (_isRecording) {
+        _resetRecordingState();
       }
     }
   }
 
-  Future<void> _stopRecordingAndSend() async {
+  void _resetRecordingState() {
+    _durationTimer?.cancel();
+    _amplitudeSub?.cancel();
+    _amplitudeSub = null;
+    setState(() {
+      _isRecording = false;
+      _isStarting = false;
+      _amplitude = 0;
+      _recordDuration = Duration.zero;
+      _waveform.clear();
+    });
+  }
+
+  // ------------------------------------------------------------- recording
+
+  Future<void> _startRecording() async {
+    if (_isStarting || _isRecording) return;
+
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _error = null;
+      _isStarting = true;
+      _isRecording = true;
+      _recordDuration = Duration.zero;
+      _waveform.clear();
+    });
+
+    try {
+      await _recorder.start();
+      if (!mounted) return;
+      setState(() => _isStarting = false);
+
+      _durationTimer?.cancel();
+      _durationTimer = Timer.periodic(const Duration(milliseconds: 100), (Timer t) {
+        if (!mounted) return;
+        setState(() {
+          _recordDuration = Duration(milliseconds: t.tick * 100);
+        });
+        if (_recordDuration >= _kMaxRecordDuration) {
+          _durationTimer?.cancel();
+          unawaited(_stopRecordingAndSend(showMaxReached: true));
+        }
+      });
+
+      _amplitudeSub?.cancel();
+      _amplitudeSub = _recorder.amplitudeStream().listen((Amplitude amp) {
+        if (!mounted) return;
+        final double normalized = normalizeAmplitude(amp.current);
+        setState(() {
+          _amplitude = normalized;
+          _waveform.add(normalized);
+          if (_waveform.length > _kWaveformSamples) {
+            _waveform.removeAt(0);
+          }
+        });
+      });
+    } on RecorderException catch (error) {
+      _resetRecordingState();
+      _showErrorBanner(_recorderMessage(error));
+      if (error.permanentlyDenied) {
+        _promptOpenSettings();
+      }
+    } catch (error) {
+      _resetRecordingState();
+      _showErrorBanner(context.l10n.recordStartFailed);
+    }
+  }
+
+  Future<void> _stopRecordingAndSend({bool showMaxReached = false}) async {
     _durationTimer?.cancel();
     await _amplitudeSub?.cancel();
     _amplitudeSub = null;
@@ -153,17 +220,28 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     try {
       path = await _recorder.stop();
     } on RecorderException catch (error) {
-      if (mounted) setState(() => _error = _recorderMessage(error));
+      if (mounted) _showErrorBanner(_recorderMessage(error));
+    } catch (error) {
+      if (mounted) _showErrorBanner(context.l10n.recordStartFailed);
     }
 
     if (!mounted) return;
     setState(() {
       _isRecording = false;
+      _isStarting = false;
       _amplitude = 0;
+      _waveform.clear();
     });
 
+    if (showMaxReached) {
+      _showErrorBanner(context.l10n.recordingMaxReached);
+      // Continue uploading; don't return.
+    }
+
     if (path == null) {
-      setState(() => _error = context.l10n.recordingTooShort);
+      if (!showMaxReached) {
+        _showErrorBanner(context.l10n.recordingTooShort);
+      }
       return;
     }
     await _submitAudio(path);
@@ -177,8 +255,10 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     if (!mounted) return;
     setState(() {
       _isRecording = false;
+      _isStarting = false;
       _amplitude = 0;
       _recordDuration = Duration.zero;
+      _waveform.clear();
     });
   }
 
@@ -289,6 +369,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
 
   void _applyResult(TranscriptResult result) {
     if (!mounted) return;
+    _rawTranscript = result.rawTranscript;
     if (result.parsedEntries.isEmpty) {
       setState(() {
         _stage = _Stage.input;
@@ -298,8 +379,18 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     }
     setState(() {
       _drafts = List<ParsedEntry>.of(result.parsedEntries);
-      _rawTranscript = result.rawTranscript;
       _stage = _Stage.review;
+      _error = null;
+    });
+  }
+
+  void _useTranscriptAsText() {
+    _textController.text = _rawTranscript;
+    _textController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _rawTranscript.length),
+    );
+    setState(() {
+      _rawTranscript = '';
       _error = null;
     });
   }
@@ -345,6 +436,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     setState(() {
       _stage = _Stage.input;
       _drafts = <ParsedEntry>[];
+      _rawTranscript = '';
       _error = null;
     });
   }
@@ -409,13 +501,28 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
         else
           _RecordControl(
             isRecording: _isRecording,
+            isStarting: _isStarting,
             amplitude: _amplitude,
+            waveform: List<double>.of(_waveform),
             duration: _recordDuration,
             enabled: !_busy,
             onStart: _startRecording,
             onStop: _stopRecordingAndSend,
             onCancel: _cancelRecording,
           ),
+
+        if (_error != null) ...<Widget>[
+          const SizedBox(height: 16),
+          _ErrorBanner(message: _error!),
+        ],
+
+        if (_rawTranscript.isNotEmpty && _stage == _Stage.input) ...<Widget>[
+          const SizedBox(height: 20),
+          _HeardTranscriptCard(
+            transcript: _rawTranscript,
+            onUseText: _useTranscriptAsText,
+          ),
+        ],
 
         const SizedBox(height: 24),
         Row(
@@ -456,11 +563,6 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
               ? _parseStageLabel(s)
               : s.convertToEntries),
         ),
-
-        if (_error != null) ...<Widget>[
-          const SizedBox(height: 20),
-          _ErrorBanner(message: _error!),
-        ],
       ],
     );
   }
@@ -727,11 +829,17 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// Microphone button with a live amplitude ring and elapsed timer.
+/// Voice input control.
+///
+/// Idle state shows a large mic button with an amplitude ring.
+/// Recording state shows a WhatsApp-style bar: elapsed timer, waveform,
+/// cancel, and stop/send buttons.
 class _RecordControl extends StatelessWidget {
   const _RecordControl({
     required this.isRecording,
+    required this.isStarting,
     required this.amplitude,
+    required this.waveform,
     required this.duration,
     required this.enabled,
     required this.onStart,
@@ -740,7 +848,9 @@ class _RecordControl extends StatelessWidget {
   });
 
   final bool isRecording;
+  final bool isStarting;
   final double amplitude;
+  final List<double> waveform;
   final Duration duration;
   final bool enabled;
   final VoidCallback onStart;
@@ -754,31 +864,37 @@ class _RecordControl extends StatelessWidget {
     return '$minutes:$seconds';
   }
 
+  String _secondsLeftLabel(AppStrings s) {
+    final int left = _kMaxRecordDuration.inSeconds - duration.inSeconds;
+    return s.recordingSecondsLeft(max(left, 0));
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
     final AppStrings s = context.l10n;
-    final double ring = 96 + (isRecording ? amplitude * 28 : 0);
+
+    if (isRecording || isStarting) {
+      return _buildRecordingBar(context, theme, scheme, s);
+    }
+
+    final double ring = 96 + amplitude * 28;
 
     return Column(
       children: <Widget>[
         Semantics(
           button: true,
-          label: isRecording
-              ? s.recordingElapsed(_timeLabel)
-              : s.tapMicIdle,
+          label: s.tapMicIdle,
           child: GestureDetector(
-            onTap: enabled ? (isRecording ? onStop : onStart) : null,
+            onTap: enabled ? onStart : null,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               width: ring,
               height: ring,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isRecording
-                    ? scheme.error.withOpacity(0.16)
-                    : scheme.primary.withOpacity(0.12),
+                color: scheme.primary.withOpacity(0.12),
               ),
               child: Center(
                 child: Container(
@@ -786,16 +902,12 @@ class _RecordControl extends StatelessWidget {
                   height: 72,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: enabled
-                        ? (isRecording ? scheme.error : scheme.primary)
-                        : scheme.surfaceContainerHighest,
+                    color: enabled ? scheme.primary : scheme.surfaceContainerHighest,
                   ),
                   child: Icon(
-                    isRecording ? Icons.stop_rounded : Icons.mic_rounded,
+                    Icons.mic_rounded,
                     size: 34,
-                    color: enabled
-                        ? (isRecording ? scheme.onError : scheme.onPrimary)
-                        : scheme.onSurfaceVariant,
+                    color: enabled ? scheme.onPrimary : scheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -804,24 +916,176 @@ class _RecordControl extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          isRecording
-              ? s.recordingElapsed(_timeLabel)
-              : s.tapMicIdle,
+          s.tapMicIdle,
           textAlign: TextAlign.center,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: isRecording ? scheme.error : scheme.onSurfaceVariant,
-            fontWeight: isRecording ? FontWeight.w600 : FontWeight.w400,
-          ),
+          style: theme.textTheme.bodyMedium
+              ?.copyWith(color: scheme.onSurfaceVariant),
         ),
-        if (isRecording) ...<Widget>[
+      ],
+    );
+  }
+
+  Widget _buildRecordingBar(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme scheme,
+    AppStrings s,
+  ) {
+    final bool rtl = Directionality.of(context) == TextDirection.rtl;
+    final int secondsLeft = _kMaxRecordDuration.inSeconds - duration.inSeconds;
+    final bool nearLimit = secondsLeft <= 10;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: scheme.error.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const PulsingDot(size: 10, color: Colors.red),
+              const SizedBox(width: 10),
+              Text(
+                _timeLabel,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _WaveformBars(
+                  samples: waveform,
+                  color: scheme.error,
+                  rtl: rtl,
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: onCancel,
+                icon: const Icon(Icons.delete_outline_rounded),
+                tooltip: s.discardRecording,
+                color: scheme.onSurfaceVariant,
+              ),
+              IconButton(
+                onPressed: onStop,
+                icon: const Icon(Icons.send_rounded),
+                tooltip: s.stopAndSend,
+                color: scheme.primary,
+              ),
+            ],
+          ),
+          if (nearLimit) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(
+              _secondsLeftLabel(s),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: scheme.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Rolling waveform visualizer.
+///
+/// Bars grow from the center outward (ChatGPT-style) in LTR and mirror in RTL.
+class _WaveformBars extends StatelessWidget {
+  const _WaveformBars({
+    required this.samples,
+    required this.color,
+    required this.rtl,
+  });
+
+  final List<double> samples;
+  final Color color;
+  final bool rtl;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<double> displaySamples = List<double>.filled(_kWaveformSamples, 0);
+    if (samples.isNotEmpty) {
+      final int start = max(0, samples.length - _kWaveformSamples);
+      for (int i = 0; i < samples.length - start; i++) {
+        displaySamples[i] = samples[start + i];
+      }
+    }
+
+    return SizedBox(
+      height: 32,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+        children: List<Widget>.generate(_kWaveformSamples, (int index) {
+          final double value = displaySamples[index];
+          final double height = 4 + value * 28;
+          return Container(
+            width: 3,
+            height: height,
+            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.4 + value * 0.6),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+/// Shows the transcribed text with an action to copy it into the text field.
+class _HeardTranscriptCard extends StatelessWidget {
+  const _HeardTranscriptCard({
+    required this.transcript,
+    required this.onUseText,
+  });
+
+  final String transcript;
+  final VoidCallback onUseText;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final AppStrings s = context.l10n;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(s.weHeard,
+              style: theme.textTheme.labelMedium
+                  ?.copyWith(color: scheme.onSurfaceVariant)),
           const SizedBox(height: 4),
-          TextButton.icon(
-            onPressed: onCancel,
-            icon: const Icon(Icons.delete_outline_rounded),
-            label: Text(s.discardRecording),
+          Text(
+            '"$transcript"',
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(fontStyle: FontStyle.italic),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: TextButton(
+              onPressed: onUseText,
+              child: Text(s.useThisText),
+            ),
           ),
         ],
-      ],
+      ),
     );
   }
 }

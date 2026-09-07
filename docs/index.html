@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Karobar Saathi API</title>
+  <meta name="description" content="Karobar Saathi — spoken transactions into structured financial evidence. Public API reference and status page." />
+  <link rel="icon" href="assets/icon.png" />
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --text: #1f2328;
+      --muted: #57606a;
+      --accent: #0d6f69;
+      --accent-soft: #e6f4f3;
+      --border: #d0d7de;
+      --code-bg: #f3f4f6;
+      --success: #1a7f37;
+      --success-bg: #dafbe1;
+      --warning: #9a6700;
+      --warning-bg: #fff8c5;
+      --danger: #cf222e;
+      --danger-bg: #ffebe9;
+      --shadow: 0 1px 3px rgba(31,35,40,0.04), 0 8px 24px rgba(66,74,83,0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1117;
+        --surface: #161b22;
+        --text: #c9d1d9;
+        --muted: #8b949e;
+        --accent: #4ecdc4;
+        --accent-soft: #132d2b;
+        --border: #30363d;
+        --code-bg: #0d1117;
+        --success: #3fb950;
+        --success-bg: #132d1b;
+        --warning: #d29922;
+        --warning-bg: #332b05;
+        --danger: #f85149;
+        --danger-bg: #3c1414;
+        --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.4);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .container {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+
+    header {
+      text-align: center;
+      padding: 48px 0 32px;
+    }
+    header img {
+      width: 96px;
+      height: 96px;
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 2.75rem);
+      margin: 18px 0 8px;
+      letter-spacing: -0.02em;
+    }
+    .tagline {
+      color: var(--muted);
+      font-size: 1.125rem;
+      max-width: 560px;
+      margin: 0 auto 24px;
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform .08s ease, box-shadow .15s ease;
+    }
+    .btn:hover { text-decoration: none; transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-small { padding: 6px 12px; font-size: 0.875rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    .card h2 { margin-top: 0; font-size: 1.25rem; }
+
+    .status-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    #status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      background: var(--warning-bg);
+      color: var(--warning);
+    }
+    #status-pill::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.7;
+    }
+    #status-pill.online { background: var(--success-bg); color: var(--success); }
+    #status-pill.offline { background: var(--danger-bg); color: var(--danger); }
+    #status-pill.waking { background: var(--warning-bg); color: var(--warning); }
+
+    .api-url {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .api-url input {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.95rem;
+    }
+
+    .cold-start {
+      display: flex;
+      gap: 12px;
+      background: var(--warning-bg);
+      color: var(--warning);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      font-size: 0.95rem;
+    }
+    .cold-start strong { display: block; margin-bottom: 2px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.9em;
+      word-break: break-word;
+    }
+    .method {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: var(--accent-soft);
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    pre {
+      background: var(--code-bg);
+      padding: 16px;
+      border-radius: 12px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      border: 1px solid var(--border);
+    }
+
+    .shop-id {
+      display: inline-block;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-family: ui-monospace, monospace;
+      margin: 4px 4px 4px 0;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-top: 40px;
+    }
+
+    @media (max-width: 600px) {
+      .container { padding: 20px 16px 48px; }
+      header { padding-top: 28px; }
+      .card { padding: 18px; }
+      th, td { padding: 10px 6px; }
+      .api-url { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="assets/icon.png" alt="Karobar Saathi app icon" />
+      <h1>Karobar Saathi API</h1>
+      <p class="tagline">Spoken daily business transactions become a structured, explainable financial record for Pakistani micro-businesses.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/ahsankhizar5/karobar-saathi/releases" target="_blank" rel="noopener">Download APK</a>
+        <a class="btn" href="https://github.com/ahsankhizar5/karobar-saathi" target="_blank" rel="noopener">GitHub Repo</a>
+      </div>
+    </header>
+
+    <div class="cold-start">
+      <span>⏳</span>
+      <div>
+        <strong>Free-tier cold starts</strong>
+        The demo backend sleeps after ~15 minutes of inactivity. The first status
+        check or API call can take up to a minute to wake up. After that, every
+        request is fast.
+      </div>
+    </div>
+
+    <section class="card">
+      <h2>Live status</h2>
+      <div class="status-bar">
+        <span id="status-pill" class="waking">Checking…</span>
+        <button class="btn btn-small" id="check-btn" type="button">Check again</button>
+      </div>
+      <p style="color: var(--muted); margin: 0;">
+        Pings <code>/health</code> from your browser to show whether the API is awake.
+      </p>
+      <div class="api-url">
+        <input id="api-url" type="text" value="https://karobar-saathi.onrender.com" aria-label="API base URL" />
+        <button class="btn btn-small" id="save-url" type="button">Save</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Explore the API</h2>
+      <p style="color: var(--muted);">Interactive documentation is generated automatically from the FastAPI backend.</p>
+      <div class="cta-row" style="justify-content: flex-start;">
+        <a class="btn" href="/docs" target="_blank" rel="noopener">Swagger UI</a>
+        <a class="btn" href="/redoc" target="_blank" rel="noopener">ReDoc</a>
+        <a class="btn" href="/openapi.json" target="_blank" rel="noopener">OpenAPI JSON</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Endpoints</h2>
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="method">GET</span></td>
+            <td><code>/health</code></td>
+            <td>Health check. Returns <code>{"status":"healthy"}</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="method">GET</span></td>
+            <td><code>/api/v1/users</code></td>
+            <td>List demo shop profiles.</td>
+          </tr>
+          <tr>
+            <td><span class="method">GET</span></td>
+            <td><code>/api/v1/users/{user_id}</code></td>
+            <td>Get a single shop profile.</td>
+          </tr>
+          <tr>
+            <td><span class="method">POST</span></td>
+            <td><code>/api/v1/voice/parse-text</code></td>
+            <td>Parse a typed Roman-Urdu transaction string into ledger entries.</td>
+          </tr>
+          <tr>
+            <td><span class="method">POST</span></td>
+            <td><code>/api/v1/voice/transcribe</code></td>
+            <td>Upload an audio file for Whisper transcription + parsing.</td>
+          </tr>
+          <tr>
+            <td><span class="method">GET</span></td>
+            <td><code>/api/v1/ledger</code></td>
+            <td>List ledger entries for a user.</td>
+          </tr>
+          <tr>
+            <td><span class="method">POST</span></td>
+            <td><code>/api/v1/ledger/batch-confirm</code></td>
+            <td>Create and confirm multiple ledger entries at once.</td>
+          </tr>
+          <tr>
+            <td><span class="method">GET</span></td>
+            <td><code>/api/v1/dashboard/{user_id}</code></td>
+            <td>Get the shopkeeper dashboard (profit, trends, insight).</td>
+          </tr>
+          <tr>
+            <td><span class="method">GET</span></td>
+            <td><code>/api/v1/evidence-profile/{user_id}</code></td>
+            <td>Consent-gated evidence summary for lenders or partners.</td>
+          </tr>
+          <tr>
+            <td><span class="method">PATCH</span></td>
+            <td><code>/api/v1/evidence-profile/{user_id}/consent</code></td>
+            <td>Grant or revoke sharing consent.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Demo shop IDs</h2>
+      <p style="color: var(--muted);">The seeded demo profiles reset on every backend restart.</p>
+      <span class="shop-id">shop_001</span>
+      <span class="shop-id">shop_002</span>
+      <span class="shop-id">shop_003</span>
+    </section>
+
+    <section class="card">
+      <h2>Consent gate example</h2>
+      <p>The evidence endpoint never returns data unless <strong>both</strong> the user has granted consent in the app <strong>and</strong> the caller sends the <code>X-User-Consent: true</code> header.</p>
+
+      <p><strong>Request</strong></p>
+      <pre><code>curl -H "X-User-Consent: true" \
+  https://karobar-saathi.onrender.com/api/v1/evidence-profile/shop_001</code></pre>
+
+      <p><strong>Revoke consent</strong></p>
+      <pre><code>curl -X PATCH \
+  -H "Content-Type: application/json" \
+  -d '{"has_user_consented_to_share":false}' \
+  https://karobar-saathi.onrender.com/api/v1/evidence-profile/shop_001/consent</code></pre>
+    </section>
+
+    <section class="card">
+      <h2>Limitations</h2>
+      <ul style="color: var(--muted); padding-left: 20px;">
+        <li>Demo data only — every Render restart resets the three seeded shops.</li>
+        <li>No authentication; the demo app is hard-wired to shared demo accounts.</li>
+        <li>"Financial readiness" is a rule-based heuristic, not a trained credit model.</li>
+        <li>Voice transcription relies on free-tier Groq Whisper, which has rate limits.</li>
+        <li>This is a proof of concept, not a production lending or accounting service.</li>
+      </ul>
+    </section>
+
+    <footer>
+      Built with Flutter & FastAPI · <a href="https://github.com/ahsankhizar5/karobar-saathi">GitHub</a> · <a href="../CHANGELOG.md">Changelog</a> · <a href="../LICENSE">MIT License</a>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const pill = document.getElementById('status-pill');
+      const checkBtn = document.getElementById('check-btn');
+      const urlInput = document.getElementById('api-url');
+      const saveBtn = document.getElementById('save-url');
+
+      const saved = localStorage.getItem('ks-api-url');
+      if (saved) urlInput.value = saved;
+
+      function setStatus(state, text) {
+        pill.className = '';
+        pill.classList.add(state);
+        pill.textContent = text;
+      }
+
+      async function checkHealth() {
+        const base = urlInput.value.trim().replace(/\/$/, '');
+        setStatus('waking', 'Waking up…');
+        const start = performance.now();
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 70000);
+          const res = await fetch(base + '/health', {
+            method: 'GET',
+            signal: controller.signal,
+            cache: 'no-store',
+          });
+          clearTimeout(timeout);
+          const ms = Math.round(performance.now() - start);
+          if (res.ok) {
+            setStatus('online', 'API is online (' + ms + ' ms)');
+          } else {
+            setStatus('offline', 'API returned ' + res.status);
+          }
+        } catch (err) {
+          if (err.name === 'AbortError') {
+            setStatus('offline', 'Timed out waiting for cold start');
+          } else {
+            setStatus('offline', 'Cannot reach API');
+          }
+        }
+      }
+
+      checkBtn.addEventListener('click', checkHealth);
+      saveBtn.addEventListener('click', () => {
+        localStorage.setItem('ks-api-url', urlInput.value.trim());
+        checkHealth();
+      });
+
+      checkHealth();
+    })();
+  </script>
+</body>
+</html>

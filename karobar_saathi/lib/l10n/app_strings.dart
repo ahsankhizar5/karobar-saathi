@@ -174,6 +174,13 @@ class AppStrings {
   String get micPermanentlyDenied => _get('micPermanentlyDenied');
   String get recordStartFailed => _get('recordStartFailed');
   String get recordSaveFailed => _get('recordSaveFailed');
+  String get recordEncoderUnsupported => _get('recordEncoderUnsupported');
+  String get recordingMaxReached => _get('recordingMaxReached');
+  String recordingSecondsLeft(int n) =>
+      _get('recordingSecondsLeft').replaceFirst('{n}', '$n');
+  String get useThisText => _get('useThisText');
+  String get stopAndSend => _get('stopAndSend');
+  String get recordingInProgress => _get('recordingInProgress');
   String get typeEntryEmpty => _get('typeEntryEmpty');
   String noTransactionsFound(String transcript) => _get('noTransactionsFound')
       .replaceFirst('{transcript}', transcript);
@@ -399,6 +406,15 @@ const Map<String, String> _en = <String, String>{
   'recordSaveFailed':
       'Could not save the recording. Try again, or type the transaction '
           'instead.',
+  'recordEncoderUnsupported':
+      "This phone's microphone format is not supported. Please type the "
+          'transaction instead.',
+  'recordingMaxReached':
+      'Maximum recording length reached — sending now.',
+  'recordingSecondsLeft': '{n}s left',
+  'useThisText': 'Use this text',
+  'stopAndSend': 'Stop and send',
+  'recordingInProgress': 'Recording',
   'typeEntryEmpty':
       'Type what happened, for example "Aaj 4500 ki sale hui aur 1200 ka '
           'maal khareeda".',
@@ -602,6 +618,15 @@ const Map<String, String> _ur = <String, String>{
   'recordSaveFailed':
       'ریکارڈنگ محفوظ نہیں ہو سکی۔ دوبارہ کوشش کریں، یا لین دین لکھ کر درج '
           'کریں۔',
+  'recordEncoderUnsupported':
+      'اس فون کا مائیکروفون فارمیٹ سپورٹ نہیں ہے۔ براہ کرم لین دین لکھ کر درج '
+          'کریں۔',
+  'recordingMaxReached':
+      'ریکارڈنگ کی حد پہنچ گئی — اب بھیجی جا رہی ہے۔',
+  'recordingSecondsLeft': '{n} سیکنڈ باقی',
+  'useThisText': 'یہ متن استعمال کریں',
+  'stopAndSend': 'روکیں اور بھیجیں',
+  'recordingInProgress': 'ریکارڈنگ ہو رہی ہے',
   'typeEntryEmpty':
       'جو ہوا وہ لکھیں، مثلاً "آج 4500 کی سیل ہوئی اور 1200 کا مال خریدا"۔',
   'noTransactionsFound':
