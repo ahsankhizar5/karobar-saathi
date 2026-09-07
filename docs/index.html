@@ -91,6 +91,23 @@
       justify-content: center;
       margin-bottom: 28px;
     }
+
+    .demo {
+      text-align: center;
+      margin: 8px 0 32px;
+    }
+    .demo img {
+      width: min(100%, 420px);
+      height: auto;
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+    .demo figcaption {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
     .btn {
       display: inline-flex;
       align-items: center;
@@ -252,6 +269,11 @@
         <a class="btn btn-primary" href="https://github.com/ahsankhizar5/karobar-saathi/releases" target="_blank" rel="noopener">Download APK</a>
         <a class="btn" href="https://github.com/ahsankhizar5/karobar-saathi" target="_blank" rel="noopener">GitHub Repo</a>
       </div>
+
+      <figure class="demo">
+        <img src="demo.gif" alt="Short demo of adding a transaction by voice" />
+        <figcaption>Voice note → parsed entry → confirmed ledger</figcaption>
+      </figure>
     </header>
 
     <div class="cold-start">
