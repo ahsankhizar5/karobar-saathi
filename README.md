@@ -26,7 +26,7 @@
 
 <p align="center">
   <a href="https://github.com/ahsankhizar5/karobar-saathi/releases/latest">
-    <img src="https://img.shields.io/badge/Download%20APK-1.4.0-0d6f69?style=for-the-badge" alt="Download APK" />
+    <img src="https://img.shields.io/badge/Download%20APK-1.4.2-0d6f69?style=for-the-badge" alt="Download APK" />
   </a>
 </p>
 
