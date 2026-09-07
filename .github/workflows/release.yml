@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 env:
   API_BASE_URL: ${{ vars.API_BASE_URL }}
 
