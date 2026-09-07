@@ -29,7 +29,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run pytest
-        run: pytest -q
+        run: pytest -v --tb=long
 
   flutter:
     name: Flutter analyze + test
