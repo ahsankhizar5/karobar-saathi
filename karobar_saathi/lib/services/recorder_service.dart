@@ -57,25 +57,42 @@ class RecorderException implements Exception {
 }
 
 /// Thin wrapper around the native recorder and file paths.
+///
+/// A fresh [AudioRecorder] is created for every recording session and disposed
+/// immediately after [stop] or [cancel]. Reusing the same native recorder on
+/// some Android devices causes the second [start] to fail, so this wrapper
+/// treats the recorder as a per-session resource.
 class RecorderService {
-  RecorderService({AudioRecorder? recorder}) : _recorder = recorder ?? AudioRecorder();
+  RecorderService({AudioRecorder? recorder}) : _recorder = recorder;
 
-  final AudioRecorder _recorder;
+  AudioRecorder? _recorder;
   bool _starting = false;
   String? _currentPath;
 
   /// Live input amplitude, used to animate the recording indicator.
-  Stream<Amplitude> amplitudeStream({Duration interval = const Duration(milliseconds: 100)}) =>
-      _recorder.onAmplitudeChanged(interval);
+  Stream<Amplitude> amplitudeStream({Duration interval = const Duration(milliseconds: 100)}) {
+    final AudioRecorder? recorder = _recorder;
+    if (recorder == null) {
+      throw StateError('Recorder is not active.');
+    }
+    return recorder.onAmplitudeChanged(interval);
+  }
 
   /// Native recorder state (recording / paused / stopped).
-  Stream<RecordState> get onStateChanged => _recorder.onStateChanged();
+  Stream<RecordState> get onStateChanged {
+    final AudioRecorder? recorder = _recorder;
+    if (recorder == null) {
+      throw StateError('Recorder is not active.');
+    }
+    return recorder.onStateChanged();
+  }
 
   /// Creates the platform recorder ahead of time so the first [start] begins
   /// capture with no setup delay. Advisory: failures surface via [start].
   Future<void> prepare() async {
+    _recorder ??= AudioRecorder();
     try {
-      await _recorder.hasPermission();
+      await _recorder!.hasPermission();
     } catch (_) {
       // Ignore — start() will raise any real error.
     }
@@ -98,7 +115,7 @@ class RecorderService {
 
   /// Starts capturing to a file in the app's temporary directory.
   Future<void> start() async {
-    if (_starting || await _recorder.isRecording()) {
+    if (_starting || await isRecording()) {
       throw RecorderException(
         'Already recording.',
         kind: RecorderErrorKind.alreadyRecording,
@@ -109,7 +126,11 @@ class RecorderService {
     try {
       await ensurePermission();
 
-      if (!await _recorder.hasPermission()) {
+      // Use the prepared recorder or instantiate a fresh one for this session.
+      _recorder ??= AudioRecorder();
+
+      if (!await _recorder!.hasPermission()) {
+        await _disposeRecorder();
         throw RecorderException(
           'Microphone permission is required.',
           kind: RecorderErrorKind.permissionDenied,
@@ -122,13 +143,13 @@ class RecorderService {
 
       // Some OEM encoders fail silently with AAC; fall back to WAV when needed.
       final AudioEncoder encoder =
-          await _recorder.isEncoderSupported(AudioEncoder.aacLc)
+          await _recorder!.isEncoderSupported(AudioEncoder.aacLc)
               ? AudioEncoder.aacLc
               : AudioEncoder.wav;
       final String path = '$basePath.${encoder == AudioEncoder.wav ? 'wav' : 'm4a'}';
       _currentPath = path;
 
-      await _recorder.start(
+      await _recorder!.start(
         RecordConfig(
           encoder: encoder,
           sampleRate: 16000,
@@ -142,9 +163,11 @@ class RecorderService {
       );
     } on RecorderException {
       _currentPath = null;
+      await _disposeRecorder();
       rethrow;
     } catch (error) {
       _currentPath = null;
+      await _disposeRecorder();
       throw RecorderException(
         'Could not start recording: $error',
         kind: RecorderErrorKind.startFailed,
@@ -158,8 +181,9 @@ class RecorderService {
   /// written.
   Future<String?> stop() async {
     try {
-      final String? path = await _recorder.stop();
+      final String? path = await _recorder?.stop();
       _currentPath = null;
+      await _disposeRecorder();
       if (path == null) return null;
 
       final File file = File(path);
@@ -173,9 +197,11 @@ class RecorderService {
       return path;
     } on RecorderException {
       _currentPath = null;
+      await _disposeRecorder();
       rethrow;
     } catch (error) {
       _currentPath = null;
+      await _disposeRecorder();
       throw RecorderException(
         'Could not save the recording: $error',
         kind: RecorderErrorKind.saveFailed,
@@ -186,9 +212,10 @@ class RecorderService {
   /// Aborts capture and deletes any partial file.
   Future<void> cancel() async {
     try {
-      await _recorder.stop();
+      await _recorder?.cancel();
       final String? path = _currentPath;
       _currentPath = null;
+      await _disposeRecorder();
       if (path != null) {
         final File file = File(path);
         if (await file.exists()) await file.delete();
@@ -196,6 +223,27 @@ class RecorderService {
     } catch (_) {
       // Cancellation is best-effort.
     }
+  }
+
+  /// Disposes the active recorder and clears the reference so the next
+  /// recording session starts with a fresh native instance.
+  Future<void> _disposeRecorder() async {
+    final AudioRecorder? recorder = _recorder;
+    _recorder = null;
+    if (recorder != null) {
+      try {
+        await recorder.dispose();
+      } catch (_) {
+        // Ignore disposal errors.
+      }
+    }
+  }
+
+  /// True when the native recorder is currently capturing audio.
+  Future<bool> isRecording() async {
+    final AudioRecorder? recorder = _recorder;
+    if (recorder == null) return false;
+    return recorder.isRecording();
   }
 
   /// Removes a recording once it has been uploaded.
@@ -213,7 +261,6 @@ class RecorderService {
 
   Future<void> dispose() async {
     await cancel();
-    await _recorder.dispose();
   }
 }
 

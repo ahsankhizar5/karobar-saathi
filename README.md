@@ -48,6 +48,7 @@ A separate **consent-gated evidence API** lets lenders or partners request the s
 | Link | URL |
 |------|-----|
 | **Download APK** | [GitHub Releases](https://github.com/ahsankhizar5/karobar-saathi/releases/latest) |
+| **Interactive Presentation** | [presentation.html](presentation.html) ([Live Deck](https://ahsankhizar5.github.io/karobar-saathi/presentation.html)) |
 | **API homepage** | [ahsankhizar5.github.io/karobar-saathi](https://ahsankhizar5.github.io/karobar-saathi) |
 | **Live API** | [karobar-saathi.onrender.com](https://karobar-saathi.onrender.com) |
 | **Offline URL card** | [docs/offline.html](https://ahsankhizar5.github.io/karobar-saathi/offline.html) |

@@ -7,14 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- GitHub Pages API homepage (`docs/index.html`) with live `/health` status,
-  endpoint reference, and consent-gate examples.
-- GitHub Actions CI workflow for backend tests and Flutter analyze/test.
-- MIT `LICENSE` and dedicated `docs/VERIFICATION.md` log.
+## [1.4.2] - 2026-09-07
 
-### Changed
-- README restructured with centered branding, badges, and API homepage link.
+### Fixed
+- Voice recording failing on second attempt in the same app session ("Could not start recording"):
+  - Fixed `package:record` single-subscription stream bug where reusing the same recorder instance threw `Bad state: Stream has already been listened to`.
+  - Treated `AudioRecorder` as an ephemeral per-session resource, cleanly releasing the microphone hardware and disposing instances on `stop()`, `cancel()`, and error rollback.
+  - Dynamically attach state and amplitude stream listeners per session in `TransactionSheet`.
+  - Added regression test for consecutive recordings in the same sheet session.
+
+## [1.4.1] - 2026-09-07
+
+### Fixed
+- Android 14 Bluetooth SCO crash on startRecording by configuring `manageBluetooth: false` and `audioSource: mic`.
 
 ## [1.4.0] - 2026-09-07
 

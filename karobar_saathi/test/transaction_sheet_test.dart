@@ -270,4 +270,59 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 200));
   });
+
+  testWidgets('can record multiple times sequentially in the same sheet session', (WidgetTester tester) async {
+    final _FakeRecorderService recorder = _FakeRecorderService()
+      ..stopPath = '/tmp/fake_audio.m4a';
+    final _FakeApiService api = _FakeApiService()
+      ..transcribeResult = const TranscriptResult(
+        parsedEntries: <ParsedEntry>[
+          ParsedEntry(
+            id: '1',
+            type: TransactionType.sale,
+            amount: 500,
+            description: 'sale',
+          ),
+        ],
+        rawTranscript: '500 ki sale',
+      );
+    addTearDown(recorder.dispose);
+
+    await _pumpSheet(tester, recorder: recorder, api: api);
+
+    // Attempt 1: Start recording
+    await tester.tap(find.byIcon(Icons.mic_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(recorder.startCalls, 1);
+    expect(find.byIcon(Icons.send_rounded), findsOneWidget);
+
+    // Stop attempt 1 and submit
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(recorder.stopCalls, 1);
+
+    // Review stage is now visible. Tap 'Start over' to return to input stage.
+    expect(find.text('Start over'), findsOneWidget);
+    await tester.tap(find.text('Start over'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Attempt 2: Mic should be available again and recording should start cleanly
+    expect(find.byIcon(Icons.mic_rounded), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.mic_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(recorder.startCalls, 2);
+    expect(find.byIcon(Icons.send_rounded), findsOneWidget);
+
+    // Stop attempt 2
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(recorder.stopCalls, 2);
+
+    expect(tester.takeException(), isNull);
+  });
 }

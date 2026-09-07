@@ -90,7 +90,8 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     // Pre-create the platform recorder so the first mic tap starts capture
     // with zero setup delay.
     unawaited(_recorder.prepare());
-    _stateSub = _recorder.onStateChanged.listen(_onRecordStateChanged);
+    // The state listener is attached per recording session because the service
+    // disposes and recreates the native recorder after each stop/cancel.
   }
 
   @override
@@ -147,6 +148,8 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     _durationTimer?.cancel();
     _amplitudeSub?.cancel();
     _amplitudeSub = null;
+    _stateSub?.cancel();
+    _stateSub = null;
     setState(() {
       _isRecording = false;
       _isStarting = false;
@@ -174,6 +177,10 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       await _recorder.start();
       if (!mounted) return;
       setState(() => _isStarting = false);
+
+      // Attach a fresh state listener to the new recorder instance.
+      await _stateSub?.cancel();
+      _stateSub = _recorder.onStateChanged.listen(_onRecordStateChanged);
 
       _durationTimer?.cancel();
       _durationTimer = Timer.periodic(const Duration(milliseconds: 100), (Timer t) {
@@ -223,6 +230,9 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       if (mounted) _showErrorBanner(_recorderMessage(error));
     } catch (error) {
       if (mounted) _showErrorBanner(context.l10n.recordStartFailed);
+    } finally {
+      await _stateSub?.cancel();
+      _stateSub = null;
     }
 
     if (!mounted) return;
@@ -252,6 +262,8 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     await _amplitudeSub?.cancel();
     _amplitudeSub = null;
     await _recorder.cancel();
+    await _stateSub?.cancel();
+    _stateSub = null;
     if (!mounted) return;
     setState(() {
       _isRecording = false;
