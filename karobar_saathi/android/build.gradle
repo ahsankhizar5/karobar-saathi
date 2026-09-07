@@ -10,6 +10,17 @@ rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
     project.evaluationDependsOn(":app")
+
+    // Plugins such as record_android reference flutter.* properties, but the
+    // flutter extension is only available in the app module. Inject a minimal
+    // flutter object so those plugins can evaluate on library modules.
+    if (project.name == "record_android") {
+        project.ext.flutter = [
+            compileSdkVersion: 34,
+            targetSdkVersion: 34,
+            ndkVersion: "25.1.8937393"
+        ]
+    }
 }
 
 tasks.register("clean", Delete) {
