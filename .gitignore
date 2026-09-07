@@ -28,3 +28,6 @@ keystore.b64
 # IDE
 .idea/
 .vscode/
+
+# Local media-generation scratch space
+tmp_media/
