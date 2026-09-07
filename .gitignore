@@ -20,6 +20,11 @@ karobar_saathi/android/local.properties
 *.jks
 *.keystore
 
+# Local signing secrets (never commit)
+key.properties
+keystore.b64
+.keystore_credentials.tmp
+
 # IDE
 .idea/
 .vscode/

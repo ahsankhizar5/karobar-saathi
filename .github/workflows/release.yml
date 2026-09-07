@@ -67,13 +67,16 @@ jobs:
           name: app-release-apk
           path: release-assets
 
-      - name: Create release (draft)
+      - name: Create or update release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --title "Karobar Saathi ${GITHUB_REF_NAME}" \
-            --notes "See [CHANGELOG.md](../blob/main/CHANGELOG.md) for details." \
-            --draft \
-            release-assets/app-release.apk
+          if gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" release-assets/app-release.apk --repo "${GITHUB_REPOSITORY}" --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "Karobar Saathi ${GITHUB_REF_NAME}" \
+              --notes "See [CHANGELOG.md](../blob/main/CHANGELOG.md) for details." \
+              release-assets/app-release.apk
+          fi
